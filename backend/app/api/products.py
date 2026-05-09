@@ -253,6 +253,7 @@ def _to_product_out(product: Product) -> ProductOut:
         created_at=product.created_at,
         platform_statuses=[
             PlatformStatusOut(
+                id=s.id,
                 platform_code=s.platform.code,
                 platform_name=s.platform.display_name,
                 external_id=s.external_id,

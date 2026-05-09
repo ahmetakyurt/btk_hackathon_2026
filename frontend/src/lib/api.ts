@@ -24,3 +24,65 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
 
   return res.json() as Promise<T>;
 }
+
+// ─── Domain types ─────────────────────────────────────────────────────────────
+
+export interface Platform {
+  id: number;
+  code: string;
+  display_name: string;
+  commission_rate: number;
+  pricing_strategy: string;
+  is_active: boolean;
+}
+
+export interface PlatformStatus {
+  id: number;
+  platform_code: string;
+  platform_name: string;
+  external_id: string | null;
+  ai_generated_title: string | null;
+  current_price: number | null;
+  floor_price: number | null;
+  has_buybox: boolean;
+  status: "pending" | "listed" | "error";
+}
+
+export interface Product {
+  id: number;
+  sku: string;
+  title: string;
+  base_cost: number;
+  shipping_cost: number;
+  stock: number;
+  category: string | null;
+  created_at: string;
+  platform_statuses: PlatformStatus[];
+}
+
+export interface ProductCreateRequest {
+  sku: string;
+  title: string;
+  base_cost: number;
+  shipping_cost: number;
+  stock: number;
+  category?: string;
+  raw_specs?: Record<string, unknown>;
+  initial_price?: number;
+}
+
+export interface PricingLog {
+  id: number;
+  product_platform_id: number;
+  agent_name: string;
+  trigger_event: string;
+  old_price: number | null;
+  new_price: number | null;
+  decision: string;
+  reasoning: string | null;
+  tool_calls: unknown;
+  duration_ms: number | null;
+  created_at: string;
+}
+
+export const SSE_URL = `${API_BASE_URL}/api/agents/logs/stream`;

@@ -58,3 +58,6 @@ prompt.txt
 
 # --- Claude Code local settings ---
 .claude/settings.local.json
+
+# --- Browser session artifacts ---
+.browser-sessions/

@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from app.agents.competitor_watcher import CompetitorWatcher
@@ -96,6 +97,14 @@ app = FastAPI(
     version="0.1.0",
     description="Multi-channel dynamic pricing & listing agent backend.",
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(products_router)

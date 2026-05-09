@@ -20,6 +20,7 @@ class ProductCreateRequest(BaseModel):
 
 
 class PlatformStatusOut(BaseModel):
+    id: int
     platform_code: str
     platform_name: str
     external_id: str | None
