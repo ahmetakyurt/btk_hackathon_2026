@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import AsyncIterator
 
@@ -192,7 +192,7 @@ async def get_competitors(
     listing = await _get_listing_or_404(session, external_id)
     return CompetitorsResponse(
         external_id=listing.external_id,
-        fetched_at=datetime.utcnow(),
+        fetched_at=datetime.now(UTC),
         own_price=listing.price,
     )
 

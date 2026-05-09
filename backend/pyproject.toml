@@ -13,7 +13,7 @@ dependencies = [
     "pydantic-settings>=2.6",
     "httpx>=0.28",
     "structlog>=24.4",
-    "google-generativeai>=0.8",
+    "google-genai>=1.0",
     "python-dotenv>=1.0",
     "sse-starlette>=2.1",
 ]
