@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import AsyncIterator
 
 from fastapi import FastAPI
-from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from app.agents.competitor_watcher import CompetitorWatcher
+from app.api.agents import broadcast_log, router as agents_router
 from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
 from app.config import get_settings
@@ -69,7 +71,21 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await conn.run_sync(Base.metadata.create_all)
 
     await _seed_platforms()
+
+    watcher = CompetitorWatcher(
+        poll_interval=settings.competitor_poll_interval_seconds,
+        on_log=broadcast_log,
+    )
+    watcher_task = asyncio.create_task(watcher.start(), name="competitor-watcher")
+
     yield
+
+    watcher.stop()
+    watcher_task.cancel()
+    try:
+        await watcher_task
+    except asyncio.CancelledError:
+        pass
     await engine.dispose()
 
 
@@ -84,6 +100,7 @@ app = FastAPI(
 
 app.include_router(products_router)
 app.include_router(pricing_router)
+app.include_router(agents_router)
 
 
 @app.get("/health")

@@ -19,6 +19,7 @@ from app.agents.pricing_agent import (
     PricingDecision,
     PricingStrategy,
 )
+from app.api.agents import broadcast_log
 from app.api.products import _make_integration, compute_floor_price  # noqa: PLC2701
 from app.config import get_settings
 from app.db.models import PricingAgentLog, Platform, Product, ProductPlatformStatus
@@ -145,6 +146,23 @@ async def trigger_pricing(
 
     await session.commit()
     await session.refresh(log)
+
+    # Broadcast to SSE subscribers (manual trigger also shows in live-log panel)
+    await broadcast_log({
+        "id": log.id,
+        "product_platform_id": log.product_platform_id,
+        "agent_name": log.agent_name,
+        "trigger_event": log.trigger_event,
+        "sku": product.sku,
+        "platform_code": platform.code,
+        "old_price": float(log.old_price) if log.old_price else None,
+        "new_price": float(log.new_price) if log.new_price else None,
+        "decision": log.decision,
+        "reasoning": log.reasoning,
+        "tool_calls": log.tool_calls,
+        "duration_ms": log.duration_ms,
+        "created_at": log.created_at.isoformat() if log.created_at else None,
+    })
 
     return TriggerResponse(
         product_platform_id=pps.id,
