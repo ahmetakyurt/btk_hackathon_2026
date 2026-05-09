@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
 from app.config import get_settings
 from app.db.models import Platform
@@ -82,6 +83,7 @@ app = FastAPI(
 )
 
 app.include_router(products_router)
+app.include_router(pricing_router)
 
 
 @app.get("/health")
