@@ -36,7 +36,7 @@ class CompetitorWatcher:
     def __init__(
         self,
         poll_interval: int = 5,
-        on_log: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        on_log: Callable[..., Awaitable[None]] | None = None,
     ) -> None:
         self._poll_interval = poll_interval
         self._on_log = on_log  # SSE broadcast hook — injected at startup
@@ -192,8 +192,8 @@ class CompetitorWatcher:
             await session.commit()
             await session.refresh(log)
 
-            # Broadcast to SSE subscribers
-            if self._on_log is not None:
+            # Broadcast to SSE subscribers (scoped to the product owner)
+            if self._on_log is not None and product.user_id is not None:
                 log_data = {
                     "id": log.id,
                     "product_platform_id": log.product_platform_id,
@@ -209,7 +209,7 @@ class CompetitorWatcher:
                     "duration_ms": log.duration_ms,
                     "created_at": log.created_at.isoformat() if log.created_at else None,
                 }
-                await self._on_log(log_data)
+                await self._on_log(log_data, user_id=product.user_id)
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

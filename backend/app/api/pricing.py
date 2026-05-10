@@ -22,6 +22,7 @@ from app.agents.pricing_agent import (
 from app.api.agents import broadcast_log
 from app.api.products import _make_integration, compute_floor_price  # noqa: PLC2701
 from app.config import get_settings
+from app.core.deps import get_current_user_id
 from app.db.models import PricingAgentLog, Platform, Product, ProductPlatformStatus
 from app.db.session import get_session
 
@@ -29,6 +30,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/pricing", tags=["pricing"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+UserIdDep = Annotated[int, Depends(get_current_user_id)]
 
 
 # ─── Response schemas ─────────────────────────────────────────────────────────
@@ -65,6 +67,7 @@ class LogOut(BaseModel):
 async def trigger_pricing(
     product_platform_id: int,
     session: SessionDep,
+    user_id: UserIdDep,
     trigger_event: str = Query(default="manual"),
 ) -> TriggerResponse:
     """Manually run the PricingAgent for a product-platform status row."""
@@ -78,6 +81,8 @@ async def trigger_pricing(
     )
     if pps is None:
         raise HTTPException(status_code=404, detail="ProductPlatformStatus not found")
+    if pps.product.user_id is not None and pps.product.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your product")
     if pps.status != "listed":
         raise HTTPException(
             status_code=400,
@@ -150,6 +155,7 @@ async def trigger_pricing(
     await session.refresh(log)
 
     # Broadcast to SSE subscribers (manual trigger also shows in live-log panel)
+    broadcast_user_id = pps.product.user_id or user_id
     await broadcast_log({
         "id": log.id,
         "product_platform_id": log.product_platform_id,
@@ -164,7 +170,7 @@ async def trigger_pricing(
         "tool_calls": log.tool_calls,
         "duration_ms": log.duration_ms,
         "created_at": log.created_at.isoformat() if log.created_at else None,
-    })
+    }, user_id=broadcast_user_id)
 
     return TriggerResponse(
         product_platform_id=pps.id,
@@ -205,11 +211,15 @@ _LOG_LOAD_OPTIONS = [
 @router.get("/logs", response_model=list[LogOut])
 async def list_pricing_logs(
     session: SessionDep,
+    user_id: UserIdDep,
     limit: int = Query(default=50, le=200),
 ) -> list[LogOut]:
-    """Most recent pricing decisions — used by live logs dashboard."""
+    """Most recent pricing decisions for the current user — used by live logs dashboard."""
     rows = await session.scalars(
         select(PricingAgentLog)
+        .join(PricingAgentLog.product_platform)
+        .join(ProductPlatformStatus.product)
+        .where(Product.user_id == user_id)
         .order_by(PricingAgentLog.created_at.desc())
         .limit(limit)
         .options(*_LOG_LOAD_OPTIONS)
@@ -221,8 +231,20 @@ async def list_pricing_logs(
 async def get_platform_pricing_logs(
     product_platform_id: int,
     session: SessionDep,
+    user_id: UserIdDep,
     limit: int = Query(default=20, le=100),
 ) -> list[LogOut]:
+    # Verify ownership first
+    pps = await session.scalar(
+        select(ProductPlatformStatus)
+        .where(ProductPlatformStatus.id == product_platform_id)
+        .options(selectinload(ProductPlatformStatus.product))
+    )
+    if pps is None:
+        raise HTTPException(status_code=404, detail="ProductPlatformStatus not found")
+    if pps.product.user_id is not None and pps.product.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your product")
+
     rows = await session.scalars(
         select(PricingAgentLog)
         .where(PricingAgentLog.product_platform_id == product_platform_id)

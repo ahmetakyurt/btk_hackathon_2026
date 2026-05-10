@@ -86,7 +86,7 @@ class ListingAgent:
     def __init__(
         self,
         api_key: str,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         timeout: float = 15.0,
         *,
         client: Any = None,  # google.genai.Client injection for tests

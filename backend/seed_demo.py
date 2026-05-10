@@ -104,14 +104,22 @@ PRODUCTS = [
 ]
 
 
-def seed(base_url: str) -> None:
-    client = httpx.Client(base_url=base_url, timeout=60.0)
+def seed(base_url: str, user_id: int | None) -> None:
+    headers: dict[str, str] = {}
+    if user_id is not None:
+        headers["X-User-Id"] = str(user_id)
+
+    client = httpx.Client(base_url=base_url, headers=headers, timeout=60.0)
 
     # Health check
     try:
         r = client.get("/health")
         r.raise_for_status()
         print(f"OK Backend: {base_url}")
+        if user_id:
+            print(f"   Seeding as user_id={user_id}")
+        else:
+            print("   WARNING: no --user-id given, products will have user_id=NULL")
     except Exception as exc:
         print(f"FAIL Backend unreachable: {exc}", file=sys.stderr)
         sys.exit(1)
@@ -144,5 +152,11 @@ def seed(base_url: str) -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", default="http://localhost:8000")
+    parser.add_argument(
+        "--user-id",
+        type=int,
+        default=None,
+        help="User ID to assign products to (X-User-Id header). Find yours in Supabase → auth.users table.",
+    )
     args = parser.parse_args()
-    seed(args.url)
+    seed(args.url, args.user_id)

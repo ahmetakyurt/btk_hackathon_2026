@@ -139,4 +139,3 @@ export interface PlatformSimState {
   competitors: CompetitorInfo[];
 }
 
-export const SSE_URL = `${API_BASE_URL}/api/agents/logs/stream`;

@@ -14,13 +14,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import get_settings
-from app.db.models import Platform, ProductPlatformStatus
+from app.core.deps import get_current_user_id
+from app.db.models import Platform, Product, ProductPlatformStatus
 from app.db.session import get_session
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/simulator", tags=["simulator"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+UserIdDep = Annotated[int, Depends(get_current_user_id)]
 
 
 def _platform_base_url(platform_code: str) -> str | None:
@@ -60,10 +62,12 @@ class SetCompetitorPriceRequest(BaseModel):
 # ─── Endpoints ────────────────────────────────────────────────────────────────
 
 @router.get("/state", response_model=list[PlatformSimState])
-async def get_simulator_state(session: SessionDep) -> list[PlatformSimState]:
-    """Return current competitor state for all listed products on competitive platforms."""
+async def get_simulator_state(session: SessionDep, user_id: UserIdDep) -> list[PlatformSimState]:
+    """Return current competitor state for the user's listed products on competitive platforms."""
     rows = await session.scalars(
         select(ProductPlatformStatus)
+        .join(ProductPlatformStatus.product)
+        .where(Product.user_id == user_id)
         .where(ProductPlatformStatus.status == "listed")
         .where(ProductPlatformStatus.external_id.isnot(None))
         .options(
@@ -109,15 +113,21 @@ async def get_simulator_state(session: SessionDep) -> list[PlatformSimState]:
 async def set_competitor_price(
     body: SetCompetitorPriceRequest,
     session: SessionDep,
+    user_id: UserIdDep,
 ) -> dict[str, Any]:
     """Proxy a competitor price change to the appropriate mock service."""
     pps = await session.scalar(
         select(ProductPlatformStatus)
         .where(ProductPlatformStatus.id == body.product_platform_id)
-        .options(selectinload(ProductPlatformStatus.platform))
+        .options(
+            selectinload(ProductPlatformStatus.platform),
+            selectinload(ProductPlatformStatus.product),
+        )
     )
     if pps is None:
         raise HTTPException(status_code=404, detail="ProductPlatformStatus not found")
+    if pps.product.user_id is not None and pps.product.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your product")
 
     platform_code = pps.platform.code
     base_url = _platform_base_url(platform_code)
