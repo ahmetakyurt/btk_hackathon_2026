@@ -126,22 +126,37 @@ export default function LogsPage() {
   }, []);
 
   useEffect(() => {
-    const es = new EventSource(SSE_URL);
-    esRef.current = es;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-    es.onopen = () => setConnected(true);
-    es.onerror = () => setConnected(false);
+    function connect() {
+      const es = new EventSource(SSE_URL);
+      esRef.current = es;
 
-    es.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data as string) as { type?: string } & PricingLog;
-        if (data.type === "connected") return;
-        setLogs((prev) => [...prev, data as PricingLog]);
-      } catch {}
-    };
+      es.onopen = () => setConnected(true);
+
+      es.onerror = () => {
+        setConnected(false);
+        es.close();
+        retryTimer = setTimeout(connect, 3000);
+      };
+
+      es.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data as string) as { type?: string } & PricingLog;
+          if (data.type === "connected") return;
+          setLogs((prev) => {
+            const next = [...prev, data as PricingLog];
+            return next.length > 100 ? next.slice(-100) : next;
+          });
+        } catch {}
+      };
+    }
+
+    connect();
 
     return () => {
-      es.close();
+      esRef.current?.close();
+      if (retryTimer) clearTimeout(retryTimer);
       setConnected(false);
     };
   }, []);

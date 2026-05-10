@@ -26,6 +26,7 @@ class PlatformStatusOut(BaseModel):
     external_id: str | None
     current_price: Decimal | None
     floor_price: Decimal | None
+    competitor_price: Decimal | None
     ai_generated_title: str | None
     has_buybox: bool
     status: str

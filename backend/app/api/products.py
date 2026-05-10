@@ -259,6 +259,7 @@ def _to_product_out(product: Product) -> ProductOut:
                 external_id=s.external_id,
                 current_price=s.current_price,
                 floor_price=s.floor_price,
+                competitor_price=s.competitor_price,
                 ai_generated_title=s.ai_generated_title,
                 has_buybox=s.has_buybox,
                 status=s.status,

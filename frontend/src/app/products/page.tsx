@@ -1,11 +1,12 @@
 import { api, type Product } from "@/lib/api";
 import Link from "next/link";
 
-async function getProducts(): Promise<Product[]> {
+async function getProducts(): Promise<{ data: Product[]; error: string | null }> {
   try {
-    return await api<Product[]>("/api/products");
-  } catch {
-    return [];
+    const data = await api<Product[]>("/api/products");
+    return { data, error: null };
+  } catch (err) {
+    return { data: [], error: err instanceof Error ? err.message : "Bilinmeyen hata" };
   }
 }
 
@@ -16,7 +17,7 @@ const STATUS_BADGE: Record<string, string> = {
 };
 
 export default async function ProductsPage() {
-  const products = await getProducts();
+  const { data: products, error } = await getProducts();
 
   return (
     <div className="p-8">
@@ -30,11 +31,17 @@ export default async function ProductsPage() {
         </Link>
       </div>
 
-      {products.length === 0 ? (
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 p-4 text-sm text-red-600 dark:text-red-400 mb-4">
+          Backend&apos;e bağlanılamadı: {error}
+        </div>
+      )}
+
+      {!error && products.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-16 text-center">
           <p className="text-zinc-500 text-sm">Henüz ürün yok. Yeni ürün ekle.</p>
         </div>
-      ) : (
+      ) : products.length > 0 ? (
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 dark:bg-zinc-800 text-left">
@@ -84,7 +91,7 @@ export default async function ProductsPage() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

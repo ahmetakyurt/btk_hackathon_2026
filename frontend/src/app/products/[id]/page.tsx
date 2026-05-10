@@ -81,11 +81,32 @@ export default async function ProductDetailPage({
               </span>
             </div>
 
+            {/* Floor hit warning */}
+            {ps.status === "listed" &&
+              ps.current_price != null &&
+              ps.floor_price != null &&
+              !ps.has_buybox &&
+              Number(ps.current_price) <= Number(ps.floor_price) * 1.02 && (
+                <div className="mx-4 mt-2 rounded-md bg-yellow-50 dark:bg-yellow-950/30 border border-yellow-200 dark:border-yellow-800 px-3 py-2">
+                  <p className="text-xs font-medium text-yellow-700 dark:text-yellow-400">
+                    ⚠ Marj koruma aktif — Buybox alınamadı
+                  </p>
+                  <p className="text-[11px] text-yellow-600 dark:text-yellow-500 mt-0.5">
+                    Floor fiyatında kaldık, rakip daha düşük.
+                  </p>
+                </div>
+              )}
+
             {/* Card body */}
             <div className="px-4 py-3 flex flex-col gap-2">
               <Row label="Güncel Fiyat" value={ps.current_price != null ? `${Number(ps.current_price).toFixed(2)} ₺` : "—"} />
               <Row label="Taban Fiyat" value={ps.floor_price != null ? `${Number(ps.floor_price).toFixed(2)} ₺` : "—"} />
-              <Row label="Buybox" value={ps.has_buybox ? "✓ Bizde" : "✗ Rakipte"} />
+              <Row label="Rakip Fiyatı" value={ps.competitor_price != null ? `${Number(ps.competitor_price).toFixed(2)} ₺` : "—"} />
+              <Row
+                label="Buybox"
+                value={ps.has_buybox ? "✓ Bizde" : "✗ Rakipte"}
+                highlight={ps.has_buybox ? "green" : undefined}
+              />
               <Row label="External ID" value={ps.external_id ?? "—"} mono />
             </div>
 
@@ -125,15 +146,21 @@ function Row({
   label,
   value,
   mono,
+  highlight,
 }: {
   label: string;
   value: string;
   mono?: boolean;
+  highlight?: "green";
 }) {
+  const valueColor =
+    highlight === "green"
+      ? "text-green-600 dark:text-green-400 font-semibold"
+      : "text-zinc-800 dark:text-zinc-200";
   return (
     <div className="flex justify-between items-baseline gap-2">
       <span className="text-xs text-zinc-400 shrink-0">{label}</span>
-      <span className={`text-xs text-zinc-800 dark:text-zinc-200 text-right ${mono ? "font-mono" : ""}`}>
+      <span className={`text-xs text-right ${valueColor} ${mono ? "font-mono" : ""}`}>
         {value}
       </span>
     </div>

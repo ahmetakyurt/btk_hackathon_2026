@@ -44,6 +44,7 @@ export interface PlatformStatus {
   ai_generated_title: string | null;
   current_price: number | null;
   floor_price: number | null;
+  competitor_price: number | null;
   has_buybox: boolean;
   status: "pending" | "listed" | "error";
 }
