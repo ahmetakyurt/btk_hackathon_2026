@@ -15,9 +15,11 @@ export function TriggerButton({ productPlatformId }: { productPlatformId: number
         `/api/pricing/trigger/${productPlatformId}`,
         { method: "POST" }
       );
+      const oldPrice = res.old_price != null ? Number(res.old_price) : null;
+      const newPrice = res.new_price != null ? Number(res.new_price) : null;
       const label =
         res.decision === "price_updated"
-          ? `✓ ${res.old_price?.toFixed(2)} → ${res.new_price?.toFixed(2)} ₺`
+          ? `✓ ${oldPrice?.toFixed(2)} → ${newPrice?.toFixed(2)} ₺`
           : res.decision === "floor_hit"
           ? "⚠ Floor'da kaldı"
           : "— Değişiklik yok";

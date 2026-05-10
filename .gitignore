@@ -54,9 +54,11 @@ logs/
 # Next.js app route named "logs" must be tracked
 !frontend/src/app/logs/
 
-# --- Project-specific local notes ---
+# --- Project-specific local notes (dev-only, not for repo) ---
 initial_info
 prompt.txt
+CLAUDE.md
+DEMO.md
 
 # --- Claude Code local settings ---
 .claude/settings.local.json
