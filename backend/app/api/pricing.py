@@ -149,7 +149,7 @@ async def trigger_pricing(
 
     if result.decision in (PricingDecision.PRICE_UPDATED, PricingDecision.FLOOR_HIT):
         pps.current_price = result.new_price
-        pps.last_synced_at = datetime.now(UTC)
+        pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
     await session.commit()
     await session.refresh(log)
