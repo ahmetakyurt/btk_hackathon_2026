@@ -1,11 +1,11 @@
-import { api, type Product } from "@/lib/api";
+import { apiServer, type Product } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TriggerButton } from "./trigger-button";
 
 async function getProduct(id: string): Promise<Product> {
   try {
-    return await api<Product>(`/api/products/${id}`);
+    return await apiServer<Product>(`/api/products/${id}`);
   } catch {
     notFound();
   }

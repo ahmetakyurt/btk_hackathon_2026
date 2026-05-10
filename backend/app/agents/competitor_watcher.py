@@ -117,7 +117,8 @@ class CompetitorWatcher:
             # Always update competitor_price + has_buybox in DB
             pps.competitor_price = new_min
             pps.has_buybox = own_has_buybox
-            pps.last_synced_at = datetime.now(UTC)
+            # Naive UTC — DB column is TIMESTAMP WITHOUT TIME ZONE
+            pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
             # Only trigger PricingAgent if min competitor price changed meaningfully
             if not _price_changed(old_min, new_min):

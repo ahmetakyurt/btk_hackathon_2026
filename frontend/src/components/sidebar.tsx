@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { signOutAction } from "@/app/auth/actions";
 
 const NAV = [
   { href: "/products", label: "Ürünler" },
@@ -10,8 +11,9 @@ const NAV = [
   { href: "/simulator", label: "Rakip Simülatörü" },
 ];
 
-export function Sidebar() {
+export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?: string | null }) {
   const pathname = usePathname();
+  if (pathname.startsWith("/auth")) return null;
 
   return (
     <aside className="w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 min-h-screen">
@@ -37,6 +39,25 @@ export function Sidebar() {
           </Link>
         ))}
       </nav>
+
+      {userEmail && (
+        <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-3">
+          <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200 truncate">
+            {userName || userEmail}
+          </div>
+          {userName && (
+            <div className="text-[11px] text-zinc-400 truncate">{userEmail}</div>
+          )}
+          <form action={signOutAction} className="mt-2">
+            <button
+              type="submit"
+              className="w-full text-left text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100"
+            >
+              Çıkış yap →
+            </button>
+          </form>
+        </div>
+      )}
     </aside>
   );
 }

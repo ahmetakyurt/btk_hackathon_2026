@@ -1,9 +1,9 @@
-import { api, type Product } from "@/lib/api";
+import { apiServer, type Product } from "@/lib/api";
 import Link from "next/link";
 
 async function getProducts(): Promise<{ data: Product[]; error: string | null }> {
   try {
-    const data = await api<Product[]>("/api/products");
+    const data = await apiServer<Product[]>("/api/products");
     return { data, error: null };
   } catch (err) {
     return { data: [], error: err instanceof Error ? err.message : "Bilinmeyen hata" };

@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     )
     pricing_agent_min_margin: float = Field(default=0.05, alias="PRICING_AGENT_MIN_MARGIN")
 
+    # Auth
+    nextauth_secret: str = Field(default="", alias="NEXTAUTH_SECRET")
+    password_reset_ttl_seconds: int = Field(default=3600, alias="PASSWORD_RESET_TTL_SECONDS")
+
+    # Email (Resend)
+    resend_api_key: str = Field(default="", alias="RESEND_API_KEY")
+    resend_from_email: str = Field(default="noreply@optiprice.online", alias="RESEND_FROM_EMAIL")
+    app_public_url: str = Field(default="http://localhost:3000", alias="APP_PUBLIC_URL")
+
 
 @lru_cache
 def get_settings() -> Settings:

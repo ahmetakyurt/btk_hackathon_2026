@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { api, type ProductCreateRequest } from "@/lib/api";
+import { type ProductCreateRequest } from "@/lib/api";
 import { useState } from "react";
 
 const schema = z.object({
@@ -46,10 +46,16 @@ export default function NewProductPage() {
         category: values.category || undefined,
         initial_price: values.initial_price || undefined,
       };
-      const product = await api<{ id: number }>("/api/products", {
+      const httpRes = await fetch("/api/proxy/api/products", {
         method: "POST",
-        body,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
+      if (!httpRes.ok) {
+        const text = await httpRes.text();
+        throw new Error(`${httpRes.status}: ${text}`);
+      }
+      const product = (await httpRes.json()) as { id: number };
       router.push(`/products/${product.id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Bir hata oluştu");
@@ -66,7 +72,13 @@ export default function NewProductPage() {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSubmit(onSubmit)(e);
+        }}
+        className="flex flex-col gap-5"
+      >
         <Field label="SKU" error={errors.sku?.message}>
           <input {...register("sku")} placeholder="SKU-001" className={inputCls} />
         </Field>
@@ -105,7 +117,8 @@ export default function NewProductPage() {
 
         <div className="flex gap-3 pt-1">
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit(onSubmit)}
             disabled={submitting}
             className="rounded-md bg-zinc-900 px-5 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 transition-colors dark:bg-zinc-50 dark:text-zinc-900"
           >

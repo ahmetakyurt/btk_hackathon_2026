@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, type PlatformSimState, type CompetitorInfo } from "@/lib/api";
+import { type PlatformSimState, type CompetitorInfo } from "@/lib/api";
 
 const PLATFORM_COLOR: Record<string, string> = {
   trendyol: "bg-orange-500",
@@ -30,14 +30,16 @@ function CompetitorRow({
     setLoading(true);
     setFeedback(null);
     try {
-      await api("/api/simulator/set-competitor-price", {
+      const r = await fetch("/api/proxy/api/simulator/set-competitor-price", {
         method: "POST",
-        body: {
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           product_platform_id: productPlatformId,
           seller_name: competitor.seller_name,
           price: parsed,
-        },
+        }),
       });
+      if (!r.ok) throw new Error(`${r.status}`);
       setFeedback("✓ Güncellendi");
       onUpdated();
     } catch (err) {
@@ -143,7 +145,9 @@ export default function SimulatorPage() {
 
   const loadState = useCallback(async () => {
     try {
-      const data = await api<PlatformSimState[]>("/api/simulator/state");
+      const r = await fetch("/api/proxy/api/simulator/state");
+      if (!r.ok) throw new Error(`${r.status}`);
+      const data = (await r.json()) as PlatformSimState[];
       setStates(data);
       setError(null);
     } catch (err) {

@@ -15,6 +15,7 @@ from sqlalchemy.orm import selectinload
 
 from app.agents.listing_agent import ListingAgent
 from app.config import get_settings
+from app.core.deps import get_optional_user_id
 from app.db.models import Platform, Product, ProductPlatformStatus
 from app.db.session import get_session
 from app.integrations.base import IntegrationError
@@ -115,11 +116,13 @@ async def _list_on_platform(
 async def create_product(
     body: ProductCreateRequest,
     session: SessionDep,
+    user_id: int | None = Depends(get_optional_user_id),
 ) -> ProductOut:
-    # 1. Duplicate SKU check
-    existing = await session.scalar(
-        select(Product).where(Product.sku == body.sku)
-    )
+    # 1. Duplicate SKU check (scoped to user when set, global otherwise)
+    sku_query = select(Product).where(Product.sku == body.sku)
+    if user_id is not None:
+        sku_query = sku_query.where(Product.user_id == user_id)
+    existing = await session.scalar(sku_query)
     if existing is not None:
         raise HTTPException(status_code=409, detail=f"SKU '{body.sku}' already exists")
 
@@ -132,6 +135,7 @@ async def create_product(
         stock=body.stock,
         category=body.category,
         raw_specs=body.raw_specs or None,
+        user_id=user_id,
     )
     session.add(product)
     await session.flush()  # get product.id without committing
@@ -212,19 +216,27 @@ async def create_product(
 
 
 @router.get("", response_model=list[ProductOut])
-async def list_products(session: SessionDep) -> list[ProductOut]:
-    rows = await session.scalars(
-        select(Product).options(
-            selectinload(Product.platform_statuses).selectinload(
-                ProductPlatformStatus.platform
-            )
+async def list_products(
+    session: SessionDep,
+    user_id: int | None = Depends(get_optional_user_id),
+) -> list[ProductOut]:
+    query = select(Product).options(
+        selectinload(Product.platform_statuses).selectinload(
+            ProductPlatformStatus.platform
         )
     )
+    if user_id is not None:
+        query = query.where(Product.user_id == user_id)
+    rows = await session.scalars(query)
     return [_to_product_out(p) for p in rows.all()]
 
 
 @router.get("/{product_id}", response_model=ProductOut)
-async def get_product(product_id: int, session: SessionDep) -> ProductOut:
+async def get_product(
+    product_id: int,
+    session: SessionDep,
+    user_id: int | None = Depends(get_optional_user_id),
+) -> ProductOut:
     product = await session.scalar(
         select(Product)
         .where(Product.id == product_id)
@@ -235,6 +247,8 @@ async def get_product(product_id: int, session: SessionDep) -> ProductOut:
         )
     )
     if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if user_id is not None and product.user_id is not None and product.user_id != user_id:
         raise HTTPException(status_code=404, detail="Product not found")
     return _to_product_out(product)
 

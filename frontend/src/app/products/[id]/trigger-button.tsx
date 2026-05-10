@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
 
 export function TriggerButton({ productPlatformId }: { productPlatformId: number }) {
   const [loading, setLoading] = useState(false);
@@ -13,10 +12,15 @@ export function TriggerButton({ productPlatformId }: { productPlatformId: number
     setLoading(true);
     setResult(null);
     try {
-      const res = await api<{ decision: string; old_price: number | null; new_price: number | null }>(
-        `/api/pricing/trigger/${productPlatformId}`,
-        { method: "POST" }
-      );
+      const httpRes = await fetch(`/api/proxy/api/pricing/trigger/${productPlatformId}`, {
+        method: "POST",
+      });
+      if (!httpRes.ok) throw new Error(`${httpRes.status}`);
+      const res = (await httpRes.json()) as {
+        decision: string;
+        old_price: number | null;
+        new_price: number | null;
+      };
       const oldPrice = res.old_price != null ? Number(res.old_price) : null;
       const newPrice = res.new_price != null ? Number(res.new_price) : null;
       const label =

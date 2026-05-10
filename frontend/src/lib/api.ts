@@ -1,10 +1,17 @@
+import { auth } from "@/auth";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+
+// Server-side base — preferred for server components & route handlers.
+const SERVER_BASE_URL = process.env.BACKEND_URL ?? API_BASE_URL;
 
 export type ApiOptions = Omit<RequestInit, "body"> & {
   body?: unknown;
 };
 
+/** Browser-side fetch (no auth header — use the /api/proxy route instead for
+ * scoped data; this stays for the SSE / public endpoints). */
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -16,12 +23,32 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
   });
-
   if (!res.ok) {
     const text = await res.text().catch(() => "");
     throw new Error(`API ${res.status} ${res.statusText}: ${text}`);
   }
+  return res.json() as Promise<T>;
+}
 
+/** Server-side fetch — reads the NextAuth session and forwards X-User-Id. */
+export async function apiServer<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const session = await auth();
+  const userId = session?.user?.id;
+  const { body, headers, ...rest } = options;
+  const res = await fetch(`${SERVER_BASE_URL}${path}`, {
+    ...rest,
+    headers: {
+      "Content-Type": "application/json",
+      ...(userId ? { "X-User-Id": userId } : {}),
+      ...headers,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
+  });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`API ${res.status} ${res.statusText}: ${text}`);
+  }
   return res.json() as Promise<T>;
 }
 

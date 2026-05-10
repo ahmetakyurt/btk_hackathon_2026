@@ -65,3 +65,13 @@ DEMO.md
 
 # --- Browser session artifacts ---
 .browser-sessions/
+
+# --- MCP server config (per-machine) ---
+.mcp.json
+
+# --- Alembic (deprecated; Supabase migrations are source of truth) ---
+backend/alembic/
+backend/alembic.ini
+
+# --- Backend dev logs ---
+backend/_*.log
