@@ -1,13 +1,9 @@
-FROM node:20-alpine AS builder
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# Install pnpm
-RUN npm install -g pnpm
-
-# Copy manifests — no --frozen-lockfile because the lockfile was created on
-# Windows and contains win32 native binaries; Docker (Linux) must re-resolve.
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --no-frozen-lockfile
+# Copy manifests and install with npm (avoids pnpm cross-platform lockfile issues)
+COPY package.json ./
+RUN npm install
 
 COPY . .
 
@@ -16,10 +12,10 @@ ARG NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN pnpm build
+RUN npm run build
 
 # ── Production image ──────────────────────────────────────────────
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
