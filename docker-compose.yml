@@ -1,0 +1,55 @@
+services:
+
+  # ── Mock platform services ─────────────────────────────────────
+  mock-trendyol:
+    build: ./mock_services/trendyol
+    ports:
+      - "9001:9001"
+    restart: unless-stopped
+
+  mock-amazon:
+    build: ./mock_services/amazon
+    ports:
+      - "9002:9002"
+    restart: unless-stopped
+
+  mock-own-site:
+    build: ./mock_services/own_site
+    ports:
+      - "9003:9003"
+    restart: unless-stopped
+
+  # ── Core backend ───────────────────────────────────────────────
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # Override mock service URLs to use Docker service names
+      MOCK_TRENDYOL_URL: http://mock-trendyol:9001
+      MOCK_AMAZON_URL: http://mock-amazon:9002
+      MOCK_OWN_SITE_URL: http://mock-own-site:9003
+    depends_on:
+      - mock-trendyol
+      - mock-amazon
+      - mock-own-site
+    restart: unless-stopped
+
+  # ── Frontend ───────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # Browser talks to backend via localhost (port is exposed above)
+        NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    environment:
+      # Server-side calls (SSR / proxy route) go via Docker network
+      BACKEND_URL: http://backend:8000
+      AUTH_SECRET: ${AUTH_SECRET}
+    depends_on:
+      - backend
+    restart: unless-stopped
