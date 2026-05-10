@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 
 export function TriggerButton({ productPlatformId }: { productPlatformId: number }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<string | null>(null);
+  const router = useRouter();
 
   async function handleClick() {
     setLoading(true);
@@ -24,6 +26,7 @@ export function TriggerButton({ productPlatformId }: { productPlatformId: number
           ? "⚠ Floor'da kaldı"
           : "— Değişiklik yok";
       setResult(label);
+      router.refresh();
     } catch (err) {
       setResult(`Hata: ${err instanceof Error ? err.message : "bilinmiyor"}`);
     } finally {

@@ -121,7 +121,7 @@ def _apply_strategy(
 ) -> Decimal:
     """Compute target price from strategy + competitors. Always clamped to [floor, ceiling]."""
     if not competitors:
-        return ceiling_price if strategy == PricingStrategy.PROFIT_MAX else current_price
+        return current_price  # rakip yoksa mevcut fiyatı koru
 
     prices = [Decimal(str(c["price"])) for c in competitors]
     min_price = min(prices)
