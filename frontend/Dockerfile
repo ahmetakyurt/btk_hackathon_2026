@@ -4,8 +4,10 @@ WORKDIR /app
 # Install pnpm
 RUN npm install -g pnpm
 
+# Copy manifests — no --frozen-lockfile because the lockfile was created on
+# Windows and contains win32 native binaries; Docker (Linux) must re-resolve.
 COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --no-frozen-lockfile
 
 COPY . .
 
