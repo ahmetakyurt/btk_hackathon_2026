@@ -48,6 +48,8 @@ class LogOut(BaseModel):
     product_platform_id: int
     agent_name: str
     trigger_event: str
+    sku: str | None
+    platform_code: str | None
     old_price: Decimal | None
     new_price: Decimal | None
     decision: str
@@ -175,6 +177,31 @@ async def trigger_pricing(
     )
 
 
+def _log_to_out(r: PricingAgentLog) -> LogOut:
+    pps = r.product_platform
+    return LogOut(
+        id=r.id,
+        product_platform_id=r.product_platform_id,
+        agent_name=r.agent_name,
+        trigger_event=r.trigger_event,
+        sku=pps.product.sku if pps and pps.product else None,
+        platform_code=pps.platform.code if pps and pps.platform else None,
+        old_price=r.old_price,
+        new_price=r.new_price,
+        decision=r.decision,
+        reasoning=r.reasoning,
+        tool_calls=r.tool_calls,
+        duration_ms=r.duration_ms,
+        created_at=r.created_at,
+    )
+
+
+_LOG_LOAD_OPTIONS = [
+    selectinload(PricingAgentLog.product_platform).selectinload(ProductPlatformStatus.product),
+    selectinload(PricingAgentLog.product_platform).selectinload(ProductPlatformStatus.platform),
+]
+
+
 @router.get("/logs", response_model=list[LogOut])
 async def list_pricing_logs(
     session: SessionDep,
@@ -185,23 +212,9 @@ async def list_pricing_logs(
         select(PricingAgentLog)
         .order_by(PricingAgentLog.created_at.desc())
         .limit(limit)
+        .options(*_LOG_LOAD_OPTIONS)
     )
-    return [
-        LogOut(
-            id=r.id,
-            product_platform_id=r.product_platform_id,
-            agent_name=r.agent_name,
-            trigger_event=r.trigger_event,
-            old_price=r.old_price,
-            new_price=r.new_price,
-            decision=r.decision,
-            reasoning=r.reasoning,
-            tool_calls=r.tool_calls,
-            duration_ms=r.duration_ms,
-            created_at=r.created_at,
-        )
-        for r in rows.all()
-    ]
+    return [_log_to_out(r) for r in rows.all()]
 
 
 @router.get("/logs/{product_platform_id}", response_model=list[LogOut])
@@ -215,20 +228,6 @@ async def get_platform_pricing_logs(
         .where(PricingAgentLog.product_platform_id == product_platform_id)
         .order_by(PricingAgentLog.created_at.desc())
         .limit(limit)
+        .options(*_LOG_LOAD_OPTIONS)
     )
-    return [
-        LogOut(
-            id=r.id,
-            product_platform_id=r.product_platform_id,
-            agent_name=r.agent_name,
-            trigger_event=r.trigger_event,
-            old_price=r.old_price,
-            new_price=r.new_price,
-            decision=r.decision,
-            reasoning=r.reasoning,
-            tool_calls=r.tool_calls,
-            duration_ms=r.duration_ms,
-            created_at=r.created_at,
-        )
-        for r in rows.all()
-    ]
+    return [_log_to_out(r) for r in rows.all()]

@@ -51,6 +51,8 @@ Thumbs.db
 # --- Logs ---
 *.log
 logs/
+# Next.js app route named "logs" must be tracked
+!frontend/src/app/logs/
 
 # --- Project-specific local notes ---
 initial_info

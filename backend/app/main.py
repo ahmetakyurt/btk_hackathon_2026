@@ -13,6 +13,7 @@ from app.agents.competitor_watcher import CompetitorWatcher
 from app.api.agents import broadcast_log, router as agents_router
 from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
+from app.api.simulator import router as simulator_router
 from app.config import get_settings
 from app.db.models import Platform
 from app.db.session import SessionLocal, engine
@@ -110,6 +111,7 @@ app.add_middleware(
 app.include_router(products_router)
 app.include_router(pricing_router)
 app.include_router(agents_router)
+app.include_router(simulator_router)
 
 
 @app.get("/health")

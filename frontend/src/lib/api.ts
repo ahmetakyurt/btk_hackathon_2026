@@ -76,13 +76,39 @@ export interface PricingLog {
   product_platform_id: number;
   agent_name: string;
   trigger_event: string;
+  sku: string | null;
+  platform_code: string | null;
   old_price: number | null;
   new_price: number | null;
   decision: string;
   reasoning: string | null;
-  tool_calls: unknown;
+  tool_calls: ToolCallEntry[] | null;
   duration_ms: number | null;
   created_at: string;
+}
+
+export interface ToolCallEntry {
+  tool: string;
+  args: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
+export interface CompetitorInfo {
+  seller_name: string;
+  price: number;
+  has_buybox: boolean;
+}
+
+export interface PlatformSimState {
+  product_platform_id: number;
+  sku: string;
+  product_title: string;
+  platform_code: string;
+  platform_name: string;
+  external_id: string;
+  own_price: number;
+  own_has_buybox: boolean;
+  competitors: CompetitorInfo[];
 }
 
 export const SSE_URL = `${API_BASE_URL}/api/agents/logs/stream`;
