@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.agents.competitor_watcher import CompetitorWatcher
 from app.api.agents import broadcast_log, router as agents_router
 from app.api.auth import router as auth_router
+from app.api.me import router as me_router
 from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
 from app.api.simulator import router as simulator_router
@@ -57,6 +58,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(me_router)
 app.include_router(products_router)
 app.include_router(pricing_router)
 app.include_router(agents_router)

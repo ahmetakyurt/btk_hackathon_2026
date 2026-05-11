@@ -42,12 +42,17 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
 
       {userEmail && (
         <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-3">
-          <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200 truncate">
-            {userName || userEmail}
-          </div>
-          {userName && (
-            <div className="text-[11px] text-zinc-400 truncate">{userEmail}</div>
-          )}
+          <Link
+            href="/profile"
+            className="block group"
+          >
+            <div className="text-xs font-medium text-zinc-700 dark:text-zinc-200 truncate group-hover:text-zinc-900 dark:group-hover:text-zinc-50 transition-colors">
+              {userName || userEmail}
+            </div>
+            {userName && (
+              <div className="text-[11px] text-zinc-400 truncate">{userEmail}</div>
+            )}
+          </Link>
           <form action={signOutAction} className="mt-2">
             <button
               type="submit"
