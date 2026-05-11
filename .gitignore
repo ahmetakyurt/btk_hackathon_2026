@@ -58,7 +58,9 @@ logs/
 initial_info
 prompt.txt
 CLAUDE.md
+CLAUDE_ARCHIVE.md
 DEMO.md
+AGENTS.md
 
 # --- Claude Code local settings ---
 .claude/settings.local.json

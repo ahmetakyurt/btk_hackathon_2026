@@ -6,6 +6,7 @@ from typing import AsyncIterator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 
 from app.agents.competitor_watcher import CompetitorWatcher
 from app.api.agents import broadcast_log, router as agents_router
@@ -15,7 +16,7 @@ from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
 from app.api.simulator import router as simulator_router
 from app.config import get_settings
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
 
 settings = get_settings()
 
@@ -68,3 +69,40 @@ app.include_router(simulator_router)
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "optiprice-backend"}
+
+
+@app.get("/db-health")
+async def db_health() -> dict[str, str]:
+    """Smoke-test the DB connection. Returns 200 on success, 503 on failure."""
+    try:
+        async with SessionLocal() as session:
+            await session.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "connected"}
+    except Exception as exc:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=503, detail=f"DB unreachable: {exc}") from exc
+
+
+@app.get("/debug")
+async def debug() -> dict[str, object]:
+    """Returns sanitized config — useful to verify Railway env vars without secrets."""
+    s = settings
+    db_url = s.database_url
+    # Show only the driver+host portion, never credentials
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(db_url)
+        db_summary = f"{parsed.scheme}://{parsed.hostname}:{parsed.port}{parsed.path}"
+    except Exception:
+        db_summary = db_url[:30] + "..."
+    return {
+        "db_driver": db_summary,
+        "has_gemini_key": bool(s.gemini_api_key),
+        "has_nextauth_secret": bool(s.nextauth_secret),
+        "has_resend_key": bool(s.resend_api_key),
+        "gemini_model": s.gemini_model,
+        "mock_trendyol_url": s.mock_trendyol_url,
+        "mock_amazon_url": s.mock_amazon_url,
+        "mock_own_site_url": s.mock_own_site_url,
+        "cors_origins": s.cors_allowed_origins,
+    }
