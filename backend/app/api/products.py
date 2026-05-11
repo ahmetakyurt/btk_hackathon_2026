@@ -118,11 +118,8 @@ async def create_product(
     session: SessionDep,
     user_id: int | None = Depends(get_optional_user_id),
 ) -> ProductOut:
-    # 1. Duplicate SKU check (scoped to user when set, global otherwise)
-    sku_query = select(Product).where(Product.sku == body.sku)
-    if user_id is not None:
-        sku_query = sku_query.where(Product.user_id == user_id)
-    existing = await session.scalar(sku_query)
+    # 1. Duplicate SKU check — global because DB has UNIQUE(sku) constraint.
+    existing = await session.scalar(select(Product).where(Product.sku == body.sku))
     if existing is not None:
         raise HTTPException(status_code=409, detail=f"SKU '{body.sku}' already exists")
 
