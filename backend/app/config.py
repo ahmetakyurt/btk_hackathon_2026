@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     resend_from_email: str = Field(default="noreply@optiprice.online", alias="RESEND_FROM_EMAIL")
     app_public_url: str = Field(default="http://localhost:3000", alias="APP_PUBLIC_URL")
 
+    # CORS — comma-separated list of allowed origins (e.g. "https://optiprice.vercel.app,http://localhost:3000")
+    cors_allowed_origins: str = Field(default="http://localhost:3000", alias="CORS_ALLOWED_ORIGINS")
+
 
 @lru_cache
 def get_settings() -> Settings:
