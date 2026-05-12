@@ -8,7 +8,12 @@ export default async function ConnectionsPage() {
   const session = await auth();
   if (!session) redirect("/auth/login");
 
-  const connections = await apiServer<PlatformConnection[]>("/api/connections");
+  let connections: PlatformConnection[] = [];
+  try {
+    connections = await apiServer<PlatformConnection[]>("/api/connections");
+  } catch {
+    // backend unreachable or table missing — render page with empty state
+  }
 
   return <ConnectionsClient initialConnections={connections} />;
 }
