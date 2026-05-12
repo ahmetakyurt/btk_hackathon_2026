@@ -7,6 +7,7 @@ import { signOutAction } from "@/app/auth/actions";
 
 const NAV = [
   { href: "/products", label: "Ürünler" },
+  { href: "/connections", label: "Platform Bağlantıları" },
   { href: "/logs", label: "Canlı Loglar" },
   { href: "/simulator", label: "Rakip Simülatörü" },
 ];

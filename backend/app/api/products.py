@@ -15,8 +15,8 @@ from sqlalchemy.orm import selectinload
 
 from app.agents.listing_agent import ListingAgent
 from app.config import get_settings
-from app.core.deps import get_optional_user_id
-from app.db.models import Platform, Product, ProductPlatformStatus
+from app.core.deps import get_current_user_id, get_optional_user_id
+from app.db.models import Platform, PlatformConnection, Product, ProductPlatformStatus
 from app.db.session import get_session
 from app.integrations.base import IntegrationError
 from app.integrations.mock_amazon import MockAmazonService
@@ -116,7 +116,7 @@ async def _list_on_platform(
 async def create_product(
     body: ProductCreateRequest,
     session: SessionDep,
-    user_id: int | None = Depends(get_optional_user_id),
+    user_id: int = Depends(get_current_user_id),
 ) -> ProductOut:
     # 1. Duplicate SKU check — global because DB has UNIQUE(sku) constraint.
     existing = await session.scalar(select(Product).where(Product.sku == body.sku))
@@ -137,9 +137,30 @@ async def create_product(
     session.add(product)
     await session.flush()  # get product.id without committing
 
-    # 3. Load active platforms
+    # 3. Load platforms the user has connected
+    connected_platform_ids = list(
+        (
+            await session.scalars(
+                select(PlatformConnection.platform_id).where(
+                    PlatformConnection.user_id == user_id
+                )
+            )
+        ).all()
+    )
+    if not connected_platform_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="Henüz hiç platform bağlantısı yok. Ürün eklemeden önce en az bir platform bağlayın.",
+        )
     platforms: list[Platform] = list(
-        (await session.scalars(select(Platform).where(Platform.is_active.is_(True)))).all()
+        (
+            await session.scalars(
+                select(Platform).where(
+                    Platform.is_active.is_(True),
+                    Platform.id.in_(connected_platform_ids),
+                )
+            )
+        ).all()
     )
     if not platforms:
         raise HTTPException(

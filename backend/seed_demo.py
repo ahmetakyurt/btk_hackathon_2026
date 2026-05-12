@@ -104,11 +104,52 @@ PRODUCTS = [
 ]
 
 
-def seed(base_url: str, user_id: int | None) -> None:
-    headers: dict[str, str] = {}
-    if user_id is not None:
-        headers["X-User-Id"] = str(user_id)
+PLATFORM_CONNECTIONS = [
+    {
+        "platform_code": "trendyol",
+        "seller_id": "DEMO-12345678",
+        "api_key": "demo-trendyol-api-key",
+    },
+    {
+        "platform_code": "amazon",
+        "seller_id": "DEMO-AXXXXXXXXXXXX",
+        "api_key": "demo-amazon-mws-key",
+    },
+    {
+        "platform_code": "own_site",
+        "seller_id": "https://demo-store.optiprice.online",
+    },
+]
 
+
+def _ensure_connections(client: httpx.Client, user_id: int) -> None:
+    """Connect to all platforms if not already connected."""
+    r = client.get("/api/connections")
+    if not r.is_success:
+        print(f"  WARN Cannot fetch connections: {r.status_code}", file=sys.stderr)
+        return
+    existing_codes = {c["platform_code"] for c in r.json()}
+
+    for conn in PLATFORM_CONNECTIONS:
+        code = conn["platform_code"]
+        if code in existing_codes:
+            print(f"  SKIP Platform '{code}' already connected")
+            continue
+        cr = client.post("/api/connections", json=conn)
+        if cr.status_code == 201:
+            print(f"  OK  Connected to platform '{code}'")
+        elif cr.status_code == 409:
+            print(f"  SKIP Platform '{code}' already connected (race)")
+        else:
+            print(f"  FAIL Platform '{code}': {cr.status_code} {cr.text[:80]}", file=sys.stderr)
+
+
+def seed(base_url: str, user_id: int | None) -> None:
+    if user_id is None:
+        print("FAIL --user-id is required (platform connections are user-scoped)", file=sys.stderr)
+        sys.exit(1)
+
+    headers: dict[str, str] = {"X-User-Id": str(user_id)}
     client = httpx.Client(base_url=base_url, headers=headers, timeout=60.0)
 
     # Health check
@@ -116,17 +157,19 @@ def seed(base_url: str, user_id: int | None) -> None:
         r = client.get("/health")
         r.raise_for_status()
         print(f"OK Backend: {base_url}")
-        if user_id:
-            print(f"   Seeding as user_id={user_id}")
-        else:
-            print("   WARNING: no --user-id given, products will have user_id=NULL")
+        print(f"   Seeding as user_id={user_id}")
     except Exception as exc:
         print(f"FAIL Backend unreachable: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    # Ensure platform connections first
+    print("\n── Platform bağlantıları ──")
+    _ensure_connections(client, user_id)
+
     created = 0
     skipped = 0
 
+    print("\n── Ürünler ──")
     for p in PRODUCTS:
         sku = p["sku"]
         try:
@@ -155,8 +198,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--user-id",
         type=int,
-        default=None,
-        help="User ID to assign products to (X-User-Id header). Find yours in Supabase → auth.users table.",
+        required=True,
+        help="User ID to seed as (X-User-Id header). Find yours in Supabase → users table.",
     )
     args = parser.parse_args()
     seed(args.url, args.user_id)

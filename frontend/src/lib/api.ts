@@ -121,6 +121,16 @@ export interface ToolCallEntry {
   result: Record<string, unknown>;
 }
 
+export interface PlatformConnection {
+  id: number;
+  platform_id: number;
+  platform_code: string;
+  platform_name: string;
+  seller_id: string | null;
+  status: string;
+  connected_at: string;
+}
+
 export interface CompetitorInfo {
   seller_name: string;
   price: number;

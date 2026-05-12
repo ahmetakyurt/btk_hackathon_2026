@@ -122,6 +122,26 @@ class ProductPlatformStatus(Base):
     )
 
 
+class PlatformConnection(Base):
+    __tablename__ = "platform_connections"
+    __table_args__ = (UniqueConstraint("user_id", "platform_id", name="uq_user_platform_conn"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    platform_id: Mapped[int] = mapped_column(
+        ForeignKey("platforms.id", ondelete="CASCADE"), nullable=False
+    )
+    seller_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    api_key: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="connected")
+    connected_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    platform: Mapped[Platform] = relationship()
+    user: Mapped[User] = relationship()
+
+
 class PricingAgentLog(Base):
     __tablename__ = "pricing_agent_logs"
 
