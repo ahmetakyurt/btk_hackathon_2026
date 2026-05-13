@@ -38,8 +38,8 @@ UserIdDep = Annotated[int, Depends(get_current_user_id)]
 class TriggerResponse(BaseModel):
     product_platform_id: int
     decision: str
-    old_price: Decimal | None
-    new_price: Decimal | None
+    old_price: float | None
+    new_price: float | None
     reasoning: str
     duration_ms: int
     log_id: int
@@ -52,8 +52,8 @@ class LogOut(BaseModel):
     trigger_event: str
     sku: str | None
     platform_code: str | None
-    old_price: Decimal | None
-    new_price: Decimal | None
+    old_price: float | None
+    new_price: float | None
     decision: str
     reasoning: str | None
     tool_calls: Any
