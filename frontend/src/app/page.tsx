@@ -15,10 +15,10 @@ export default async function HomePage() {
           <Logo size="md" />
           <div className="hidden md:flex items-center gap-8">
             <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Ozellikler
+              Özellikler
             </a>
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-              Nasil Calisir
+              Nasıl Çalışır
             </a>
             <a href="#platforms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Platformlar
@@ -29,13 +29,13 @@ export default async function HomePage() {
               href="/auth/login"
               className="text-sm font-medium text-foreground hover:text-muted-foreground transition-colors"
             >
-              Giris Yap
+              Giriş Yap
             </Link>
             <Link
               href="/auth/register"
               className="rounded-full bg-primary px-5 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity"
             >
-              Hemen Basla
+              Hemen Başla
             </Link>
           </div>
         </div>
@@ -60,20 +60,20 @@ export default async function HomePage() {
         {/* Main headline */}
         <div className="max-w-4xl mx-auto text-center animate-slide-up opacity-0 stagger-2">
           <h1 className="text-4xl sm:text-5xl lg:text-7xl font-bold tracking-tight text-balance leading-tight">
-            Cok Kanallik{" "}
+            Çok Kanallı{" "}
             <span className="relative">
               <span className="bg-gradient-to-r from-accent via-blue-500 to-indigo-500 bg-clip-text text-transparent">
-                Otonom Fiyatlandirma
+                Otonom Fiyatlandırma
               </span>
               <svg className="absolute -bottom-2 left-0 w-full h-3 text-accent/30" viewBox="0 0 200 8" fill="none">
                 <path d="M1 5.5C47 2.5 153 2.5 199 5.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
               </svg>
             </span>{" "}
-            Ajani
+            Ajanı
           </h1>
 
           <p className="mt-8 text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto text-balance leading-relaxed">
-            Urunlerinizi bir kez tanimlayin. Yapay zeka ajanlarimiz her platformda sizin icin listelesin, fiyatlasin ve rakipleri izlesin.
+            Ürünlerinizi bir kez tanımlayın. Yapay zeka ajanlarımız her platformda sizin için listelesin, fiyatlasın ve rakipleri izlesin.
           </p>
         </div>
 
@@ -83,7 +83,7 @@ export default async function HomePage() {
             href="/auth/register"
             className="group rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20"
           >
-            Ucretsiz Deneyin
+            Ücretsiz Deneyin
             <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
             </svg>
@@ -92,7 +92,7 @@ export default async function HomePage() {
             href="#how-it-works"
             className="rounded-full border border-border px-8 py-3.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
           >
-            Nasil Calisir?
+            Nasıl Çalışır?
           </Link>
         </div>
 
@@ -114,7 +114,7 @@ export default async function HomePage() {
               <div className="p-6 bg-gradient-to-br from-card to-secondary/30">
                 <div className="grid grid-cols-3 gap-4">
                   <div className="rounded-xl bg-card border border-border p-4 animate-float">
-                    <div className="text-xs text-muted-foreground mb-1">Toplam Urun</div>
+                    <div className="text-xs text-muted-foreground mb-1">Toplam Ürün</div>
                     <div className="text-2xl font-bold">1,247</div>
                     <div className="text-xs text-green-500 mt-1">+12% bu hafta</div>
                   </div>
@@ -124,9 +124,9 @@ export default async function HomePage() {
                     <div className="text-xs text-muted-foreground mt-1">Trendyol, Amazon, Web</div>
                   </div>
                   <div className="rounded-xl bg-card border border-border p-4 animate-float" style={{ animationDelay: "0.5s" }}>
-                    <div className="text-xs text-muted-foreground mb-1">Fiyat Guncellemesi</div>
+                    <div className="text-xs text-muted-foreground mb-1">Fiyat Güncellemesi</div>
                     <div className="text-2xl font-bold">328</div>
-                    <div className="text-xs text-accent mt-1">Bugun otomatik</div>
+                    <div className="text-xs text-accent mt-1">Bugün otomatik</div>
                   </div>
                 </div>
               </div>
@@ -173,7 +173,7 @@ export default async function HomePage() {
               Neden OptiPrice AI?
             </h2>
             <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              E-ticaret operasyonlarinizi tamamen otomatiklestirin
+              E-ticaret operasyonlarınızı tamamen otomatikleştirin
             </p>
           </div>
 
@@ -185,7 +185,7 @@ export default async function HomePage() {
                 </svg>
               }
               title="Otomatik Listeleme"
-              description="Her platform icin AI ile SEO uyumlu baslik, aciklama ve anahtar kelimeler — tek tikla 3 platformda listeleyin."
+              description="Her platform için AI ile SEO uyumlu başlık, açıklama ve anahtar kelimeler — tek tıkla 3 platformda listeleyin."
               delay={0}
             />
             <FeatureCard
@@ -195,7 +195,7 @@ export default async function HomePage() {
                 </svg>
               }
               title="Otonom Fiyatlama"
-              description="Komisyon, kargo, maliyet ve rakip fiyatlarina gore — her platformun ekonomisine ozel fiyat stratejisi."
+              description="Komisyon, kargo, maliyet ve rakip fiyatlarına göre — her platformun ekonomisine özel fiyat stratejisi."
               delay={100}
             />
             <FeatureCard
@@ -204,8 +204,8 @@ export default async function HomePage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
               }
-              title="Canli Ajan Loglari"
-              description="Tum fiyat kararlarini anlik izleyin. Hangi ajan neye karar verdi, neden — tam seffaflik."
+              title="Canlı Ajan Logları"
+              description="Tüm fiyat kararlarını anlık izleyin. Hangi ajan neye karar verdi, neden — tam şeffaflık."
               delay={200}
             />
           </div>
@@ -217,28 +217,28 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Nasil Calisir?
+              Nasıl Çalışır?
             </h2>
             <p className="mt-4 text-muted-foreground max-w-xl mx-auto">
-              Uc basit adimda e-ticaret otomasyonunuzu baslatin
+              Üç basit adımda e-ticaret otomasyonunuzu başlatın
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <StepCard
               number="1"
-              title="Urununuzu Tanimlayin"
-              description="Urun bilgilerini bir kez girin. AI gerisini halleder."
+              title="Ürününüzü Tanımlayın"
+              description="Ürün bilgilerini bir kez girin. AI gerisini halleder."
             />
             <StepCard
               number="2"
-              title="Platformlari Secin"
-              description="Trendyol, Amazon, kendi siteniz — istediginiz platformlari aktif edin."
+              title="Platformları Seçin"
+              description="Trendyol, Amazon, kendi siteniz — istediğiniz platformları aktif edin."
             />
             <StepCard
               number="3"
-              title="Otonom Yonetim"
-              description="AI ajanlarimiz 7/24 fiyatlari optimize eder, rakipleri izler."
+              title="Otonom Yönetim"
+              description="AI ajanlarımız 7/24 fiyatları optimize eder, rakipleri izler."
             />
           </div>
         </div>
@@ -267,23 +267,23 @@ export default async function HomePage() {
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            E-ticaretinizi Otomatiklestirin
+            E-ticaretinizi Otomatikleştirin
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Tek bir urun, uc ayri platform, tamamen otonom yonetim.
+            Tek bir ürün, üç ayrı platform, tamamen otonom yönetim.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/auth/register"
               className="rounded-full bg-primary px-8 py-3.5 text-sm font-semibold text-primary-foreground hover:opacity-90 transition-opacity shadow-lg shadow-primary/20"
             >
-              Ucretsiz Baslayın
+              Ücretsiz Başlayın
             </Link>
             <Link
               href="/auth/login"
               className="rounded-full border border-border px-8 py-3.5 text-sm font-medium text-foreground hover:bg-secondary transition-colors"
             >
-              Giris Yap
+              Giriş Yap
             </Link>
           </div>
         </div>
