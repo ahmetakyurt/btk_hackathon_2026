@@ -1,13 +1,22 @@
+import { Logo } from "@/components/logo";
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">OptiPrice AI</h1>
-          <p className="text-sm text-zinc-500 mt-1">Multi-channel dynamic pricing</p>
-        </div>
-        <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
-          {children}
+    <div className="min-h-screen w-full flex flex-col bg-background">
+      {/* Logo header */}
+      <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4">
+        <Logo size="md" linkToHome={true} />
+      </header>
+
+      {/* Auth content */}
+      <div className="flex-1 flex items-center justify-center p-4 pt-20">
+        <div className="w-full max-w-md">
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-xl shadow-primary/5">
+            {children}
+          </div>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            OptiPrice AI — Cok kanallik dinamik fiyatlandirma
+          </p>
         </div>
       </div>
     </div>
