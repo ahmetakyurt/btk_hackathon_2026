@@ -57,7 +57,7 @@ class HttpBackedMockIntegration(BasePricingIntegration):
     ):
         if not self.platform_code:
             raise ValueError(f"{type(self).__name__}.platform_code must be set")
-        self.base_url = base_url.rstrip("/")
+        self.base_url = base_url.rstrip("/") + "/"
         self._timeout = timeout
         self._injected_client = client
 
@@ -109,7 +109,7 @@ class HttpBackedMockIntegration(BasePricingIntegration):
         }
         body.update(self._extra_listing_fields(payload))
 
-        resp = await self._request("POST", "/products", json=body)
+        resp = await self._request("POST", "products", json=body)
         if resp.status_code >= 500:
             raise IntegrationUnavailableError(
                 f"{self.platform_code}: POST /products → {resp.status_code}"
@@ -122,7 +122,7 @@ class HttpBackedMockIntegration(BasePricingIntegration):
 
     async def update_price(self, external_id: str, price: float) -> bool:
         resp = await self._request(
-            "PUT", f"/products/{external_id}/price", json={"price": price}
+            "PUT", f"products/{external_id}/price", json={"price": price}
         )
         if resp.status_code == 404:
             raise ListingNotFoundError(
@@ -135,7 +135,7 @@ class HttpBackedMockIntegration(BasePricingIntegration):
         return bool(resp.json().get("ok", False))
 
     async def get_competitor_snapshot(self, external_id: str) -> CompetitorSnapshot:
-        resp = await self._request("GET", f"/products/{external_id}/competitors")
+        resp = await self._request("GET", f"products/{external_id}/competitors")
         if resp.status_code == 404:
             raise ListingNotFoundError(
                 f"{self.platform_code}: listing {external_id} not found"
@@ -162,7 +162,7 @@ class HttpBackedMockIntegration(BasePricingIntegration):
         )
 
     async def get_listing(self, external_id: str) -> ListingResult | None:
-        resp = await self._request("GET", f"/products/{external_id}")
+        resp = await self._request("GET", f"products/{external_id}")
         if resp.status_code == 404:
             return None
         if resp.status_code >= 500:
