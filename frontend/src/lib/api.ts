@@ -74,6 +74,7 @@ export interface PlatformStatus {
   competitor_price: number | null;
   has_buybox: boolean;
   status: "pending" | "listed" | "error";
+  error_message?: string | null;
 }
 
 export interface Product {

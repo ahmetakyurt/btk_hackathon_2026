@@ -110,6 +110,16 @@ export default async function ProductDetailPage({
               <Row label="External ID" value={ps.external_id ?? "—"} mono />
             </div>
 
+            {/* Error detail */}
+            {ps.status === "error" && ps.error_message && (
+              <div className="mx-4 mt-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2">
+                <p className="text-xs font-medium text-red-700 dark:text-red-400">Hata Detayı</p>
+                <p className="text-[11px] text-red-600 dark:text-red-500 mt-0.5 font-mono break-all">
+                  {ps.error_message}
+                </p>
+              </div>
+            )}
+
             {/* AI title */}
             {ps.ai_generated_title && (
               <div className="px-4 pb-3">

@@ -106,6 +106,13 @@ async def _list_on_platform(
             "list_on_platform failed for %s/%s: %s", platform.code, product.sku, exc
         )
         status_row.status = "error"
+        status_row._error_message = str(exc)  # transient, surfaced via PlatformStatusOut
+    except Exception as exc:
+        logger.exception(
+            "list_on_platform unexpected error for %s/%s", platform.code, product.sku
+        )
+        status_row.status = "error"
+        status_row._error_message = f"{type(exc).__name__}: {exc}"
 
     return status_row
 
@@ -295,6 +302,7 @@ def _to_product_out(product: Product) -> ProductOut:
                 ai_generated_title=s.ai_generated_title,
                 has_buybox=s.has_buybox,
                 status=s.status,
+                error_message=getattr(s, "_error_message", None),
             )
             for s in product.platform_statuses
         ],

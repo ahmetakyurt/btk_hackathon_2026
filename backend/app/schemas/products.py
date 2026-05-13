@@ -30,6 +30,7 @@ class PlatformStatusOut(BaseModel):
     ai_generated_title: str | None
     has_buybox: bool
     status: str
+    error_message: str | None = None
 
 
 class ProductOut(BaseModel):
