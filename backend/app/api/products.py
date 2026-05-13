@@ -366,9 +366,19 @@ async def retry_product_listing(
     for row in results:
         session.add(row)
     await session.commit()
-    await session.refresh(product)
 
-    return _to_product_out(product)
+    # Re-fetch with relationships — session.refresh doesn't reload nested relationships in async mode
+    loaded = await session.scalar(
+        select(Product)
+        .where(Product.id == product_id)
+        .options(
+            selectinload(Product.platform_statuses).selectinload(
+                ProductPlatformStatus.platform
+            )
+        )
+    )
+    assert loaded is not None
+    return _to_product_out(loaded)
 
 
 # ─── Internal mapper ──────────────────────────────────────────────────────────
