@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_current_user_id
 from app.db.models import Platform, PlatformConnection
@@ -67,8 +68,8 @@ async def list_connections(
     rows = await session.scalars(
         select(PlatformConnection)
         .where(PlatformConnection.user_id == user_id)
-        .join(Platform)
-        .order_by(Platform.id)
+        .options(selectinload(PlatformConnection.platform))
+        .order_by(PlatformConnection.platform_id)
     )
     return [_to_out(c) for c in rows.all()]
 
