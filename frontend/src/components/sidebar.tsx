@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/auth/actions";
 
 const NAV = [
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/products", label: "Ürünler" },
   { href: "/connections", label: "Platform Bağlantıları" },
   { href: "/logs", label: "Canlı Loglar" },

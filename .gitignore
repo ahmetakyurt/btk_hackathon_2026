@@ -77,3 +77,5 @@ backend/alembic.ini
 
 # --- Backend dev logs ---
 backend/_*.log
+
+screenshots/

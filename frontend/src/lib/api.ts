@@ -132,6 +132,24 @@ export interface PlatformConnection {
   connected_at: string;
 }
 
+export interface PlatformAnalytics {
+  platform_code: string;
+  platform_name: string;
+  total_profit: number;
+  avg_price: number;
+  buybox_win_rate: number;
+  total_decisions: number;
+  floor_hit_count: number;
+  last_decision_at: string | null;
+}
+
+export interface DashboardSummary {
+  platforms: PlatformAnalytics[];
+  recent_decisions: PricingLog[];
+  total_products: number;
+  total_listed: number;
+}
+
 export interface CompetitorInfo {
   seller_name: string;
   price: number;

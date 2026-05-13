@@ -5,6 +5,7 @@ const PUBLIC_PREFIXES = ["/auth", "/api/auth", "/_next", "/favicon"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
+  if (pathname === "/") return NextResponse.next();
   const isPublic = PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
   if (isPublic) return NextResponse.next();
 

@@ -1,5 +1,6 @@
 import { apiServer, type Product } from "@/lib/api";
 import Link from "next/link";
+import { DemoSeedButton } from "./DemoSeedButton";
 
 async function getProducts(): Promise<{ data: Product[]; error: string | null }> {
   try {
@@ -39,7 +40,16 @@ export default async function ProductsPage() {
 
       {!error && products.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-300 dark:border-zinc-700 p-16 text-center">
-          <p className="text-zinc-500 text-sm">Henüz ürün yok. Yeni ürün ekle.</p>
+          <p className="text-zinc-500 text-sm mb-4">Henuz urun yok. Yeni urun ekle ya da demo verisiyle basla.</p>
+          <div className="flex items-center justify-center gap-3">
+            <Link
+              href="/products/new"
+              className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
+            >
+              + Yeni Urun
+            </Link>
+            <DemoSeedButton />
+          </div>
         </div>
       ) : products.length > 0 ? (
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">

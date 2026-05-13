@@ -31,10 +31,12 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex">
-        <Sidebar
-          userEmail={session?.user?.email ?? undefined}
-          userName={session?.user?.fullName ?? session?.user?.name ?? undefined}
-        />
+        {session?.user && (
+          <Sidebar
+            userEmail={session.user.email ?? undefined}
+            userName={session.user.fullName ?? session.user.name ?? undefined}
+          />
+        )}
         <main className="flex-1 overflow-auto bg-zinc-50 dark:bg-zinc-950">
           {children}
         </main>

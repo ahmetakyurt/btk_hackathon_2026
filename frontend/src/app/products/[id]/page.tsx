@@ -1,14 +1,24 @@
-import { apiServer, type Product } from "@/lib/api";
+import { apiServer, type PricingLog, type Product } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RetryButton } from "./retry-button";
+import { RetryAllButton } from "./RetryAllButton";
 import { TriggerButton } from "./trigger-button";
+import PriceHistoryChart from "./PriceHistoryChart";
 
 async function getProduct(id: string): Promise<Product> {
   try {
     return await apiServer<Product>(`/api/products/${id}`);
   } catch {
     notFound();
+  }
+}
+
+async function getLogs(platformStatusId: number): Promise<PricingLog[]> {
+  try {
+    return await apiServer<PricingLog[]>(`/api/pricing/logs/${platformStatusId}?limit=30`);
+  } catch {
+    return [];
   }
 }
 
@@ -38,6 +48,17 @@ export default async function ProductDetailPage({
   const { id } = await params;
   const product = await getProduct(id);
 
+  // Fetch price logs for each platform status in parallel
+  const logsMap = new Map<number, PricingLog[]>();
+  if (product.platform_statuses.length > 0) {
+    const results = await Promise.all(
+      product.platform_statuses.map((ps) => getLogs(ps.id))
+    );
+    product.platform_statuses.forEach((ps, i) => {
+      logsMap.set(ps.id, results[i]);
+    });
+  }
+
   return (
     <div className="p-8">
       <div className="mb-2">
@@ -61,6 +82,9 @@ export default async function ProductDetailPage({
 
       {/* Platform cards */}
       <h2 className="text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-3">Platform Durumları</h2>
+      <div className="mb-4">
+        <RetryAllButton productId={product.id} />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {product.platform_statuses.map((ps) => (
           <div
@@ -110,6 +134,13 @@ export default async function ProductDetailPage({
               />
               <Row label="External ID" value={ps.external_id ?? "—"} mono />
             </div>
+
+            {/* Price history chart */}
+            <PriceHistoryChart
+              logs={logsMap.get(ps.id) ?? []}
+              platformCode={ps.platform_code}
+              floorPrice={ps.floor_price}
+            />
 
             {/* Error detail */}
             {ps.status === "error" && ps.error_message && (

@@ -11,7 +11,9 @@ from sqlalchemy import text
 from app.agents.competitor_watcher import CompetitorWatcher
 from app.api.agents import broadcast_log, router as agents_router
 from app.api.auth import router as auth_router
+from app.api.analytics import router as analytics_router
 from app.api.connections import router as connections_router
+from app.api.demo import router as demo_router
 from app.api.me import router as me_router
 from app.api.pricing import router as pricing_router
 from app.api.products import router as products_router
@@ -61,7 +63,9 @@ app.add_middleware(
 
 app.include_router(auth_router)
 app.include_router(me_router)
+app.include_router(analytics_router)
 app.include_router(connections_router)
+app.include_router(demo_router)
 app.include_router(products_router)
 app.include_router(pricing_router)
 app.include_router(agents_router)

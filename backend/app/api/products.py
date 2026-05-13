@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -278,14 +279,22 @@ async def get_product(
     return _to_product_out(product)
 
 
-# ─── Retry failed platform listings ────────────────────────────────────────────
+# ─── Retry / re-list on missing platforms ───────────────────────────────────────
 
-@router.post("/{product_id}/retry", response_model=ProductOut)
+class RetryResult(BaseModel):
+    errors_retried: int
+    new_platforms_listed: int
+    total_succeeded: int
+    total_failed: int
+    product: ProductOut
+
+
+@router.post("/{product_id}/retry", response_model=RetryResult)
 async def retry_product_listing(
     product_id: int,
     session: SessionDep,
     user_id: int = Depends(get_current_user_id),
-) -> ProductOut:
+) -> RetryResult:
     product = await session.scalar(
         select(Product)
         .where(Product.id == product_id)
@@ -300,10 +309,6 @@ async def retry_product_listing(
     if product.user_id is not None and product.user_id != user_id:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    error_statuses = [s for s in product.platform_statuses if s.status == "error"]
-    if not error_statuses:
-        raise HTTPException(status_code=400, detail="No failed platform listings to retry")
-
     settings = get_settings()
     agent = ListingAgent(
         api_key=settings.gemini_api_key,
@@ -317,7 +322,43 @@ async def retry_product_listing(
         "raw_specs": product.raw_specs or {},
     }
 
-    async def _retry_one(ps: ProductPlatformStatus) -> ProductPlatformStatus:
+    # 1. Error statuses to retry
+    error_statuses = [s for s in product.platform_statuses if s.status == "error"]
+
+    # 2. Connected platforms that have no platform_status row at all
+    connected_ids = list(
+        (
+            await session.scalars(
+                select(PlatformConnection.platform_id).where(
+                    PlatformConnection.user_id == user_id
+                )
+            )
+        ).all()
+    )
+    existing_ids = {s.platform_id for s in product.platform_statuses}
+    missing_platform_ids = [pid for pid in connected_ids if pid not in existing_ids]
+    missing_platforms: list[Platform] = []
+    if missing_platform_ids:
+        missing_platforms = list(
+            (
+                await session.scalars(
+                    select(Platform).where(
+                        Platform.is_active.is_(True),
+                        Platform.id.in_(missing_platform_ids),
+                    )
+                )
+            ).all()
+        )
+
+    if not error_statuses and not missing_platforms:
+        raise HTTPException(status_code=400, detail="No failed or missing platform listings to retry")
+
+    success = 0
+    failed = 0
+
+    # Retry helper
+    async def _retry_one(ps: ProductPlatformStatus) -> None:
+        nonlocal success, failed
         platform = ps.platform
         integration = _make_integration(platform)
         ai = await agent.generate_listing(platform.code, product_info)
@@ -351,23 +392,51 @@ async def retry_product_listing(
             ps.current_price = result.listed_price
             ps.status = "listed"
             ps._error_message = None
+            success += 1
         except IntegrationError as exc:
             logger.error("retry failed for %s/%s: %s", platform.code, product.sku, exc)
             ps.status = "error"
             ps._error_message = str(exc)
+            failed += 1
         except Exception as exc:
             logger.exception("retry unexpected error for %s/%s", platform.code, product.sku)
             ps.status = "error"
             ps._error_message = f"{type(exc).__name__}: {exc}"
+            failed += 1
 
-        return ps
+    # New listing helper for missing platforms
+    async def _list_new(platform: Platform) -> None:
+        nonlocal success, failed
+        ai = await agent.generate_listing(platform.code, product_info)
+        floor = compute_floor_price(
+            product.base_cost,
+            product.shipping_cost,
+            Decimal(str(platform.commission_rate)),
+            settings.pricing_agent_min_margin,
+        )
+        listing_price = (floor * Decimal("1.30")).quantize(Decimal("0.01"))
+        status_row = await _list_on_platform(
+            product=product,
+            platform=platform,
+            ai_title=ai.title,
+            ai_description=ai.description,
+            ai_keywords=ai.keywords,
+            listing_price=listing_price,
+            floor_price=floor,
+            session=session,
+        )
+        if status_row.status == "listed":
+            success += 1
+        else:
+            failed += 1
+        session.add(status_row)
 
-    results = await asyncio.gather(*[_retry_one(ps) for ps in error_statuses])
-    for row in results:
-        session.add(row)
+    tasks = [_retry_one(ps) for ps in error_statuses]
+    tasks += [_list_new(p) for p in missing_platforms]
+    await asyncio.gather(*tasks)
     await session.commit()
 
-    # Re-fetch with relationships — session.refresh doesn't reload nested relationships in async mode
+    # Re-fetch with relationships
     loaded = await session.scalar(
         select(Product)
         .where(Product.id == product_id)
@@ -378,7 +447,14 @@ async def retry_product_listing(
         )
     )
     assert loaded is not None
-    return _to_product_out(loaded)
+
+    return RetryResult(
+        errors_retried=len(error_statuses),
+        new_platforms_listed=len(missing_platforms),
+        total_succeeded=success,
+        total_failed=failed,
+        product=_to_product_out(loaded),
+    )
 
 
 # ─── Internal mapper ──────────────────────────────────────────────────────────
