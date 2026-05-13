@@ -278,6 +278,99 @@ async def get_product(
     return _to_product_out(product)
 
 
+# ─── Retry failed platform listings ────────────────────────────────────────────
+
+@router.post("/{product_id}/retry", response_model=ProductOut)
+async def retry_product_listing(
+    product_id: int,
+    session: SessionDep,
+    user_id: int = Depends(get_current_user_id),
+) -> ProductOut:
+    product = await session.scalar(
+        select(Product)
+        .where(Product.id == product_id)
+        .options(
+            selectinload(Product.platform_statuses).selectinload(
+                ProductPlatformStatus.platform
+            )
+        )
+    )
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product.user_id is not None and product.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    error_statuses = [s for s in product.platform_statuses if s.status == "error"]
+    if not error_statuses:
+        raise HTTPException(status_code=400, detail="No failed platform listings to retry")
+
+    settings = get_settings()
+    agent = ListingAgent(
+        api_key=settings.gemini_api_key,
+        model=settings.gemini_model,
+        timeout=float(settings.gemini_timeout_seconds),
+    )
+    product_info: dict[str, Any] = {
+        "sku": product.sku,
+        "title": product.title,
+        "category": product.category,
+        "raw_specs": product.raw_specs or {},
+    }
+
+    async def _retry_one(ps: ProductPlatformStatus) -> ProductPlatformStatus:
+        platform = ps.platform
+        integration = _make_integration(platform)
+        ai = await agent.generate_listing(platform.code, product_info)
+        floor = compute_floor_price(
+            product.base_cost,
+            product.shipping_cost,
+            Decimal(str(platform.commission_rate)),
+            settings.pricing_agent_min_margin,
+        )
+        listing_price = (floor * Decimal("1.30")).quantize(Decimal("0.01"))
+
+        payload = ListingPayload(
+            sku=product.sku,
+            title=ai.title,
+            description=ai.description,
+            category=product.category,
+            price=listing_price,
+            stock=product.stock,
+            keywords=ai.keywords,
+            raw_specs={k: str(v) for k, v in (product.raw_specs or {}).items()},
+        )
+        ps.ai_generated_title = ai.title
+        ps.ai_generated_desc = ai.description
+        ps.current_price = listing_price
+        ps.floor_price = floor
+        ps.ceiling_price = (listing_price * Decimal("2")).quantize(Decimal("0.01"))
+
+        try:
+            result = await integration.list_product(payload)
+            ps.external_id = result.external_id
+            ps.current_price = result.listed_price
+            ps.status = "listed"
+            ps._error_message = None
+        except IntegrationError as exc:
+            logger.error("retry failed for %s/%s: %s", platform.code, product.sku, exc)
+            ps.status = "error"
+            ps._error_message = str(exc)
+        except Exception as exc:
+            logger.exception("retry unexpected error for %s/%s", platform.code, product.sku)
+            ps.status = "error"
+            ps._error_message = f"{type(exc).__name__}: {exc}"
+
+        return ps
+
+    results = await asyncio.gather(*[_retry_one(ps) for ps in error_statuses])
+    for row in results:
+        session.add(row)
+    await session.commit()
+    await session.refresh(product)
+
+    return _to_product_out(product)
+
+
 # ─── Internal mapper ──────────────────────────────────────────────────────────
 
 def _to_product_out(product: Product) -> ProductOut:

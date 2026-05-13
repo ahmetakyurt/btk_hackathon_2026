@@ -1,6 +1,7 @@
 import { apiServer, type Product } from "@/lib/api";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { RetryButton } from "./retry-button";
 import { TriggerButton } from "./trigger-button";
 
 async function getProduct(id: string): Promise<Product> {
@@ -130,7 +131,12 @@ export default async function ProductDetailPage({
               </div>
             )}
 
-            {/* Manual trigger */}
+            {/* Manual trigger — retry failed listings */}
+            {ps.status === "error" && (
+              <div className="px-4 pb-4">
+                <RetryButton productId={product.id} />
+              </div>
+            )}
             {ps.status === "listed" && ps.external_id && (
               <div className="px-4 pb-4">
                 <TriggerButton productPlatformId={ps.id} />
