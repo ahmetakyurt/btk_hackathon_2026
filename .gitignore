@@ -79,3 +79,5 @@ backend/alembic.ini
 backend/_*.log
 
 screenshots/
+
+E2E_SMOKE_TEST.md
