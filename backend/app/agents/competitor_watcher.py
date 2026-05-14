@@ -207,7 +207,7 @@ class CompetitorWatcher:
                     "reasoning": log.reasoning,
                     "tool_calls": log.tool_calls,
                     "duration_ms": log.duration_ms,
-                    "created_at": log.created_at.isoformat() if log.created_at else None,
+                    "created_at": (log.created_at.isoformat() + "Z") if log.created_at else None,
                 }
                 await self._on_log(log_data, user_id=product.user_id)
 

@@ -198,7 +198,7 @@ def _log_to_out(r: PricingAgentLog) -> LogOut:
         reasoning=r.reasoning,
         tool_calls=r.tool_calls,
         duration_ms=r.duration_ms,
-        created_at=r.created_at,
+        created_at=r.created_at.replace(tzinfo=UTC) if r.created_at else None,
     )
 
 
