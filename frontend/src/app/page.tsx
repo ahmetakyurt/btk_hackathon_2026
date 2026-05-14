@@ -53,7 +53,7 @@ export default async function HomePage() {
         <div className="animate-slide-up opacity-0 stagger-1">
           <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-xs font-medium text-muted-foreground mb-8 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            Shackathon&apos;26 — BTK x Google x Girvak
+            Hackathon&apos;26 — BTK x Google x GİRVAK
           </div>
         </div>
 
@@ -270,7 +270,7 @@ export default async function HomePage() {
             E-ticaretinizi Otomatikleştirin
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Tek bir ürün, üç ayrı platform, tamamen otonom yönetim.
+            Tek bir ürün, farklı platformlar, tamamen otonom yönetim.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
@@ -294,7 +294,7 @@ export default async function HomePage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <Logo size="sm" linkToHome={false} />
           <p className="text-sm text-muted-foreground">
-            Shackathon&apos;26 — BTK Akademi x Google x Girvak
+            Hackathon&apos;26 — BTK Akademi x Google x GİRVAK
           </p>
         </div>
       </footer>

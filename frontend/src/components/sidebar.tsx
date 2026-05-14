@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { signOutAction } from "@/app/auth/actions";
+import { Logo } from "@/components/logo";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard" },
@@ -19,11 +20,9 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
 
   return (
     <aside className="w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 h-screen overflow-y-auto">
-      <div className="px-5 py-5 border-b border-zinc-200 dark:border-zinc-800">
-        <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-          OptiPrice AI
-        </span>
-        <p className="text-xs text-zinc-400 mt-0.5">Shackathon&apos;26</p>
+      <div className="px-5 py-4 border-b border-zinc-200 dark:border-zinc-800">
+        <Logo size="sm" linkToHome={false} />
+        <p className="text-xs text-zinc-400 mt-1.5">Hackathon&apos;26</p>
       </div>
       <nav className="flex flex-col gap-0.5 px-3 py-4 flex-1">
         {NAV.map(({ href, label }) => (
