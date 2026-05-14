@@ -436,10 +436,25 @@ class PricingAgent:
         if name == "calculate_floor_price":
             return _tool_calculate_floor_price(**args)
         if name == "update_platform_price":
-            return await _tool_update_platform_price(
+            proposed = Decimal(str(args.get("new_price", ctx.current_price)))
+            conf = _compute_confidence(ctx.current_price, proposed, ctx.floor_price, ctx.ceiling_price)
+            if conf < _CONFIDENCE_THRESHOLD:
+                return {
+                    "success": False,
+                    "pending_approval": True,
+                    "_confidence_score": conf,
+                    "_proposed_price": float(proposed),
+                    "reason": (
+                        f"Güven skoru {conf:.0f}/100 — eşik {_CONFIDENCE_THRESHOLD:.0f}. "
+                        "Kritik fiyat değişimi tespit edildi, onay bekleniyor."
+                    ),
+                }
+            result = await _tool_update_platform_price(
                 integration, ctx.external_id,
-                float(args["new_price"]), str(args.get("reason", "")),
+                float(proposed), str(args.get("reason", "")),
             )
+            result["_confidence_score"] = conf
+            return result
         if name == "log_decision":
             return {"logged": True, "decision": args.get("decision", ""), "reasoning": args.get("reasoning", "")}
         return {"error": f"Unknown tool: {name}"}
