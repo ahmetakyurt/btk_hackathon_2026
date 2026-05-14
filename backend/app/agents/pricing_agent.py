@@ -39,6 +39,7 @@ class PricingDecision(str, Enum):
     PRICE_UPDATED = "price_updated"
     NO_ACTION = "no_action"
     FLOOR_HIT = "floor_hit"
+    PENDING_APPROVAL = "pending_approval"
 
 
 @dataclass
