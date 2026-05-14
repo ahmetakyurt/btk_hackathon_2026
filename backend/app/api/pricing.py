@@ -178,6 +178,8 @@ async def trigger_pricing(
         "tool_calls": log.tool_calls,
         "duration_ms": log.duration_ms,
         "created_at": (log.created_at.isoformat() + "Z") if log.created_at else None,
+        "confidence_score": log.confidence_score,
+        "is_pending_approval": log.is_pending_approval,
     }, user_id=broadcast_user_id)
 
     return TriggerResponse(
