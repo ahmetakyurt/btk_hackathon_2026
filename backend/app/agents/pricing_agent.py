@@ -116,6 +116,39 @@ async def _tool_update_platform_price(
         return {"success": False, "new_price": new_price, "error": str(exc)}
 
 
+# ─── Confidence score ────────────────────────────────────────────────────────
+
+def _compute_confidence(
+    current_price: Decimal,
+    target_price: Decimal,
+    floor_price: Decimal,
+    ceiling_price: Decimal,
+) -> float:
+    """Return 0–100 confidence score. Below _CONFIDENCE_THRESHOLD → requires human approval.
+
+    Penalties:
+    - Price change >15%: -30  (drastic swing)
+    - Price change >10%: -10  (notable swing)
+    - Target within 1% of floor range: -26  (floor proximity)
+    - Target within 5% of floor range: -10  (near floor)
+    """
+    score = 100.0
+    if current_price > 0:
+        change_pct = abs(target_price - current_price) / current_price
+        if change_pct > Decimal("0.15"):
+            score -= 30.0
+        elif change_pct > Decimal("0.10"):
+            score -= 10.0
+    price_range = ceiling_price - floor_price
+    if price_range > 0:
+        floor_gap_ratio = (target_price - floor_price) / price_range
+        if floor_gap_ratio < Decimal("0.01"):
+            score -= 26.0
+        elif floor_gap_ratio < Decimal("0.05"):
+            score -= 10.0
+    return max(0.0, min(100.0, score))
+
+
 # ─── Strategy logic (pure, fully testable) ────────────────────────────────────
 
 def _find_smart_reference(prices: list[Decimal]) -> Decimal:
