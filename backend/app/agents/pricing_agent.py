@@ -19,9 +19,11 @@ from app.integrations.base import BasePricingIntegration, IntegrationError
 
 logger = logging.getLogger(__name__)
 
-_BUYBOX_UNDERCUT = Decimal("0.50")            # TL below lowest competitor
+_BUYBOX_UNDERCUT = Decimal("0.50")            # TL below buybox winner
 _MIN_PRICE_DELTA = Decimal("0.50")            # ignore changes smaller than this
 _PROFIT_MAX_RATIO = Decimal("0.95")           # own_site: 5% below competitor
+_OUTLIER_GAP_RATIO = Decimal("0.20")          # cheapest >20% below 2nd → treat as outlier
+_PROFIT_MAX_RAISE_STEP = Decimal("1.05")      # max 5% raise per step when holding buybox
 _MAX_GEMINI_TURNS = 6
 _GEMINI_TOTAL_TIMEOUT = 40.0                  # hard cap across all turns
 
@@ -112,47 +114,150 @@ async def _tool_update_platform_price(
 
 # ─── Strategy logic (pure, fully testable) ────────────────────────────────────
 
+def _find_smart_reference(prices: list[Decimal]) -> Decimal:
+    """Ignore outlier cheapest. If cheapest >20% below 2nd, use 2nd as reference."""
+    if len(prices) < 2:
+        return prices[0]
+    if prices[0] < prices[1] * (Decimal("1") - _OUTLIER_GAP_RATIO):
+        return prices[1]  # outlier — use 2nd cheapest
+    return prices[0]
+
+
 def _apply_strategy(
     strategy: PricingStrategy,
     current_price: Decimal,
     floor_price: Decimal,
     ceiling_price: Decimal,
     competitors: list[dict[str, Any]],
+    own_has_buybox: bool = False,
 ) -> Decimal:
     """Compute target price from strategy + competitors. Always clamped to [floor, ceiling]."""
     if not competitors:
+        if strategy == PricingStrategy.PROFIT_MAX:
+            return ceiling_price  # no competitors → maximize profit at ceiling
         return current_price  # rakip yoksa mevcut fiyatı koru
 
-    prices = [Decimal(str(c["price"])) for c in competitors]
-    min_price = min(prices)
+    prices = sorted([Decimal(str(c["price"])) for c in competitors])
+    min_price = prices[0]
     avg_price = sum(prices, Decimal("0")) / len(prices)
+    n = len(prices)
+    median_price = (
+        (prices[n // 2 - 1] + prices[n // 2]) / Decimal("2")
+        if n % 2 == 0
+        else prices[n // 2]
+    )
+
+    # Find buybox winner
+    buybox_candidates = [c for c in competitors if c.get("has_buybox")]
+    buybox_winner_price = min(Decimal(str(c["price"])) for c in buybox_candidates) if buybox_candidates else min_price
 
     if strategy == PricingStrategy.BUYBOX:
-        target = min_price - _BUYBOX_UNDERCUT
+        target = _buybox_target(current_price, sorted(prices), buybox_winner_price, own_has_buybox)
     elif strategy == PricingStrategy.LOGISTICS_BALANCE:
-        target = avg_price
+        target = _logistics_target(current_price, sorted(prices), median_price, buybox_winner_price, own_has_buybox, floor_price)
     else:  # PROFIT_MAX
-        target = min_price * _PROFIT_MAX_RATIO
+        target = _profitmax_target(current_price, ceiling_price, sorted(prices), buybox_winner_price, own_has_buybox)
 
     return max(floor_price, min(ceiling_price, target)).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
 
+def _buybox_target(
+    current: Decimal,
+    sorted_prices: list[Decimal],
+    buybox_winner: Decimal,
+    own_has_buybox: bool,
+) -> Decimal:
+    """Win buybox without leaving money on the table."""
+    if own_has_buybox and sorted_prices:
+        # We hold buybox — raise toward cheapest competitor (don't leave money)
+        target = sorted_prices[0] - _BUYBOX_UNDERCUT
+        return max(target, current)  # never drop when already winning
+
+    # We don't have buybox — undercut the buybox winner
+    ref = _find_smart_reference(sorted_prices)
+    return ref - _BUYBOX_UNDERCUT
+
+
+def _logistics_target(
+    current: Decimal,
+    sorted_prices: list[Decimal],
+    median: Decimal,
+    buybox_winner: Decimal,
+    own_has_buybox: bool,
+    floor_price: Decimal,
+) -> Decimal:
+    """Stay near market median, compete for buybox when needed."""
+    if own_has_buybox:
+        # Already winning buybox — stay near median, don't undercut unnecessarily
+        if current <= median:
+            return current  # already competitive
+        return median  # above median, ease down
+
+    # No buybox — target the median (logistics is about market stability)
+    return median
+
+
+def _profitmax_target(
+    current: Decimal,
+    ceiling: Decimal,
+    sorted_prices: list[Decimal],
+    buybox_winner: Decimal,
+    own_has_buybox: bool,
+) -> Decimal:
+    """Maximize margin: raise when possible, undercut when necessary."""
+    if own_has_buybox:
+        # We hold buybox — gradually raise toward cheapest competitor
+        raise_target = (current * _PROFIT_MAX_RAISE_STEP).quantize(Decimal("0.01"))
+        if sorted_prices:
+            cheapest_competitor = sorted_prices[0]
+            cap = (cheapest_competitor * _PROFIT_MAX_RATIO).quantize(Decimal("0.01"))
+            return max(current, min(raise_target, cap, ceiling))
+        return max(current, min(raise_target, ceiling))
+
+    # No buybox — undercut using smart reference
+    ref = _find_smart_reference(sorted_prices)
+    return ref * _PROFIT_MAX_RATIO
+
+
 # ─── Gemini prompt + tool declarations ───────────────────────────────────────
 
 _SYSTEM_PROMPT = (
-    "Sen bir e-ticaret fiyatlandırma uzmanısın. Belirtilen strateji doğrultusunda "
-    "şu sırayı takip et: 1) get_competitor_prices ile rakip fiyatlarını al, "
-    "2) calculate_floor_price ile taban fiyatı doğrula, 3) strateji kuralını uygula, "
-    "4) fiyat değişmesi gerekiyorsa update_platform_price çağır, "
-    "5) log_decision ile kararını özetle (price_updated | no_action | floor_hit)."
+    "Sen bir e-ticaret fiyatlandırma uzmanısın. Amacın maksimum kâr ile buybox kazanmak arasında "
+    "denge kurmak. Belirtilen strateji doğrultusunda şu sırayı takip et:\n"
+    "1) get_competitor_prices ile rakip fiyatlarını ve buybox durumunu al\n"
+    "2) calculate_floor_price ile taban fiyatı doğrula\n"
+    "3) Strateji kuralını uygula — ama AKILLI ol:\n"
+    "   - PARAYI MASADA BIRAKMA: Eğer buybox sende ise ve ikinci en düşük rakipten çok aşağıdaysan, "
+    "fiyatı ikinci rakibin 0.50 TL altına YÜKSELT (mevcut fiyatı düşürme)\n"
+    "   - OUTLIER'LARI GÖRMEZDEN GEL: En düşük rakip diğerlerinden %20'den fazla ucuzsa, "
+    "ikinci en düşüğü referans al (en ucuz outlier muhtemelen stok eritiyordur)\n"
+    "   - Her rakibin has_buybox flag'ine bak; buybox sahibinin fiyatını referans al\n"
+    "4) Fiyat değişmesi gerekiyorsa update_platform_price çağır\n"
+    "5) log_decision ile kararını ve DETAYLI gerekçeni yaz (price_updated | no_action | floor_hit)"
 )
 
 _STRATEGY_HINTS: dict[PricingStrategy, str] = {
-    PricingStrategy.BUYBOX: "En düşük rakip fiyatının 0.50 TL altında kal (floor aşılmıyorsa)",
-    PricingStrategy.LOGISTICS_BALANCE: "Rakip fiyat ortalamasına yakın dur",
-    PricingStrategy.PROFIT_MAX: "Marjı maks et; rakip varsa %5 ucuz, yoksa tavan fiyatında kal",
+    PricingStrategy.BUYBOX: (
+        "BUYBOX STRATEJİSİ:\n"
+        "- Buybox KAYBETTİYSEN: buybox sahibi rakibin 0.50 TL altına in\n"
+        "- Buybox SENDE İSE: ikinci en düşük rakibin 0.50 TL altına YÜKSEL (para bırakma!) "
+        "— ama mevcut fiyatından aşağı inme\n"
+        "- En düşük rakip outlier ise (diğerlerinden %20+ ucuz), ikinci en düşüğü referans al"
+    ),
+    PricingStrategy.LOGISTICS_BALANCE: (
+        "LOJİSTİK DENGESİ:\n"
+        "- Rakip fiyatlarının MEDYAN'ına yakın dur (ortalamayı outlier'lar bozabilir)\n"
+        "- Buybox sende ise ve medyandan düşüksen fiyatı koru\n"
+        "- Buybox sende değilse buybox kazananın 0.50 TL altına in (floor'a saygılı)"
+    ),
+    PricingStrategy.PROFIT_MAX: (
+        "KÂR MAKSİMİZASYONU:\n"
+        "- Rakip YOKSA: tavan fiyatta kal\n"
+        "- Buybox SENDE İSE: fiyatı %5 kademeli YÜKSELT (tavanı aşma)\n"
+        "- Buybox KAYBETTİYSEN: referans rakibin %5 altına in"
+    ),
 }
 
 
@@ -416,7 +521,8 @@ class PricingAgent:
 
         # 3. Strategy → target price
         competitors = comp_result.get("competitors", [])
-        target = _apply_strategy(ctx.strategy, ctx.current_price, floor_price, ctx.ceiling_price, competitors)
+        own_has_buybox = comp_result.get("own_has_buybox", False)
+        target = _apply_strategy(ctx.strategy, ctx.current_price, floor_price, ctx.ceiling_price, competitors, own_has_buybox)
 
         # 4. Decide
         delta = abs(target - ctx.current_price)

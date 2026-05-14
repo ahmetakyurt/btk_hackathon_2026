@@ -15,6 +15,8 @@ from app.agents.pricing_agent import (
     PricingDecision,
     PricingStrategy,
     _apply_strategy,
+    _buybox_target,
+    _find_smart_reference,
     _tool_calculate_floor_price,
 )
 from app.integrations.schemas import CompetitorEntry, CompetitorSnapshot
@@ -43,7 +45,7 @@ def _ctx(
     )
 
 
-def _mock_integration(competitor_prices: list[float], update_returns: bool = True) -> Any:
+def _mock_integration(competitor_prices: list[float], own_has_buybox: bool = False, update_returns: bool = True) -> Any:
     snapshot = CompetitorSnapshot(
         external_id="TY-00000001",
         platform_code="trendyol",
@@ -52,7 +54,7 @@ def _mock_integration(competitor_prices: list[float], update_returns: bool = Tru
             for i, p in enumerate(competitor_prices)
         ],
         fetched_at=datetime.now(UTC),
-        own_has_buybox=False,
+        own_has_buybox=own_has_buybox,
         own_price=None,
     )
     integration = AsyncMock()
@@ -64,7 +66,8 @@ def _mock_integration(competitor_prices: list[float], update_returns: bool = Tru
 # ─── _apply_strategy ─────────────────────────────────────────────────────────
 
 class TestApplyStrategy:
-    def test_buybox_undercuts_lowest_competitor(self) -> None:
+    def test_buybox_undercuts_buybox_winner(self) -> None:
+        # No buybox → undercut buybox winner (Seller0 = 250 has no has_buybox flag, so min=250 wins)
         result = _apply_strategy(
             PricingStrategy.BUYBOX,
             current_price=Decimal("260"),
@@ -72,10 +75,9 @@ class TestApplyStrategy:
             ceiling_price=Decimal("400"),
             competitors=[{"price": 250.0}, {"price": 255.0}],
         )
-        assert result == Decimal("249.50")  # min(250,255) - 0.50
+        assert result == Decimal("249.50")  # 250 - 0.50
 
     def test_buybox_clamps_to_floor(self) -> None:
-        # competitor at 200, undercut → 199.50 < floor 200 → clamped to 200
         result = _apply_strategy(
             PricingStrategy.BUYBOX,
             current_price=Decimal("210"),
@@ -85,7 +87,44 @@ class TestApplyStrategy:
         )
         assert result == Decimal("200.00")
 
-    def test_logistics_balance_uses_average(self) -> None:
+    def test_buybox_raises_when_own_has_buybox(self) -> None:
+        # We have buybox at 230, cheapest competitor at 255 → raise to 255 - 0.50 = 254.50
+        result = _apply_strategy(
+            PricingStrategy.BUYBOX,
+            current_price=Decimal("230"),
+            floor_price=Decimal("200"),
+            ceiling_price=Decimal("400"),
+            competitors=[{"price": 255.0}, {"price": 260.0}],
+            own_has_buybox=True,
+        )
+        assert result == Decimal("254.50")  # raise toward cheapest competitor - 0.50
+
+    def test_buybox_stays_put_when_already_optimal(self) -> None:
+        # We have buybox at 260, 2nd cheapest is 255 → 255-0.50=254.50 < 260, stay at 260
+        result = _apply_strategy(
+            PricingStrategy.BUYBOX,
+            current_price=Decimal("260"),
+            floor_price=Decimal("200"),
+            ceiling_price=Decimal("400"),
+            competitors=[{"price": 250.0}, {"price": 255.0}],
+            own_has_buybox=True,
+        )
+        assert result == Decimal("260.00")  # don't drop when already winning
+
+    def test_buybox_ignores_outlier(self) -> None:
+        # Cheapest at 100 is outlier (>20% below 2nd at 149)
+        # Should use 2nd cheapest: 149 - 0.50 = 148.50
+        result = _apply_strategy(
+            PricingStrategy.BUYBOX,
+            current_price=Decimal("200"),
+            floor_price=Decimal("100"),
+            ceiling_price=Decimal("400"),
+            competitors=[{"price": 100.0}, {"price": 149.0}, {"price": 155.0}],
+            own_has_buybox=False,
+        )
+        assert result == Decimal("148.50")  # outlier ignored, 149 - 0.50
+
+    def test_logistics_balance_uses_median(self) -> None:
         result = _apply_strategy(
             PricingStrategy.LOGISTICS_BALANCE,
             current_price=Decimal("115"),
@@ -93,7 +132,19 @@ class TestApplyStrategy:
             ceiling_price=Decimal("200"),
             competitors=[{"price": 100.0}, {"price": 120.0}],
         )
-        assert result == Decimal("110.00")  # avg = 110
+        assert result == Decimal("110.00")  # median of [100,120]
+
+    def test_logistics_balance_keeps_when_buybox_and_below_median(self) -> None:
+        # We have buybox at 95, median is 110 → stay at 95 (already competitive)
+        result = _apply_strategy(
+            PricingStrategy.LOGISTICS_BALANCE,
+            current_price=Decimal("95"),
+            floor_price=Decimal("80"),
+            ceiling_price=Decimal("200"),
+            competitors=[{"price": 100.0}, {"price": 120.0}],
+            own_has_buybox=True,
+        )
+        assert result == Decimal("95.00")
 
     def test_profit_max_uses_ceiling_when_no_competitors(self) -> None:
         result = _apply_strategy(
@@ -115,6 +166,18 @@ class TestApplyStrategy:
         )
         assert result == Decimal("95.00")  # 100 * 0.95
 
+    def test_profit_max_raises_when_has_buybox(self) -> None:
+        # We have buybox at 95, cheapest competitor at 110 → raise 5% = 99.75, cap at 110*0.95 = 104.50
+        result = _apply_strategy(
+            PricingStrategy.PROFIT_MAX,
+            current_price=Decimal("95"),
+            floor_price=Decimal("80"),
+            ceiling_price=Decimal("200"),
+            competitors=[{"price": 110.0}],
+            own_has_buybox=True,
+        )
+        assert result == Decimal("99.75")  # min(95*1.05, 110*0.95, 200) = min(99.75, 104.50, 200)
+
     def test_no_competitors_buybox_keeps_current(self) -> None:
         result = _apply_strategy(
             PricingStrategy.BUYBOX,
@@ -124,6 +187,21 @@ class TestApplyStrategy:
             competitors=[],
         )
         assert result == Decimal("200.00")
+
+
+class TestFindSmartReference:
+    def test_no_outlier_two_items(self) -> None:
+        ref = _find_smart_reference([Decimal("100"), Decimal("105")])
+        assert ref == Decimal("100")
+
+    def test_outlier_detected(self) -> None:
+        # 80 < 148 * 0.80 = 118.4 → outlier, use 148
+        ref = _find_smart_reference([Decimal("80"), Decimal("148"), Decimal("155")])
+        assert ref == Decimal("148")
+
+    def test_single_item(self) -> None:
+        ref = _find_smart_reference([Decimal("100")])
+        assert ref == Decimal("100")
 
 
 # ─── _tool_calculate_floor_price ─────────────────────────────────────────────
@@ -191,7 +269,7 @@ class TestPricingAgentDeterministic:
         assert result.new_price == Decimal("400.00")
 
     @pytest.mark.asyncio
-    async def test_logistics_balance_tracks_average(self) -> None:
+    async def test_logistics_balance_tracks_median(self) -> None:
         agent = PricingAgent(api_key="")
         ctx = _ctx(
             strategy=PricingStrategy.LOGISTICS_BALANCE,
@@ -199,10 +277,34 @@ class TestPricingAgentDeterministic:
             floor_price=Decimal("150"),
             ceiling_price=Decimal("500"),
         )
-        integration = _mock_integration([240.0, 260.0])  # avg = 250
+        integration = _mock_integration([240.0, 260.0])  # median = 250
         result = await agent.run(ctx, integration)
         assert result.decision == PricingDecision.PRICE_UPDATED
         assert result.new_price == Decimal("250.00")
+
+    @pytest.mark.asyncio
+    async def test_buybox_raises_when_own_has_buybox_deterministic(self) -> None:
+        # We have buybox at 230, cheapest competitor at 255 → raise to 255 - 0.50 = 254.50
+        agent = PricingAgent(api_key="")
+        ctx = _ctx(strategy=PricingStrategy.BUYBOX, current_price=Decimal("230"))
+        integration = _mock_integration([255.0, 260.0], own_has_buybox=True)
+        result = await agent.run(ctx, integration)
+        assert result.decision == PricingDecision.PRICE_UPDATED
+        assert result.new_price == Decimal("254.50")
+
+    @pytest.mark.asyncio
+    async def test_profit_max_raises_with_buybox(self) -> None:
+        agent = PricingAgent(api_key="")
+        ctx = _ctx(
+            strategy=PricingStrategy.PROFIT_MAX,
+            current_price=Decimal("95"),
+            floor_price=Decimal("80"),
+            ceiling_price=Decimal("200"),
+        )
+        integration = _mock_integration([110.0], own_has_buybox=True)
+        result = await agent.run(ctx, integration)
+        assert result.decision == PricingDecision.PRICE_UPDATED
+        assert result.new_price == Decimal("99.75")  # 95*1.05=99.75
 
     @pytest.mark.asyncio
     async def test_tool_calls_logged_in_result(self) -> None:
