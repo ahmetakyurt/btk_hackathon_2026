@@ -222,7 +222,7 @@ export default function LogsClient({ userId }: { userId: string }) {
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data as string) as { type?: string } & PricingLog;
-          if (data.type === "connected") return;
+          if (data.type === "connected") { setConnected(true); return; }
           setLogs((prev) => {
             const next = [data as PricingLog, ...prev];
             return next.length > 100 ? next.slice(0, 100) : next;
