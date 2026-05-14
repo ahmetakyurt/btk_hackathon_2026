@@ -209,6 +209,8 @@ def _log_to_out(r: PricingAgentLog) -> LogOut:
         tool_calls=r.tool_calls,
         duration_ms=r.duration_ms,
         created_at=r.created_at.replace(tzinfo=UTC) if r.created_at else None,
+        confidence_score=r.confidence_score,
+        is_pending_approval=r.is_pending_approval,
     )
 
 
