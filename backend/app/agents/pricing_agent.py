@@ -592,7 +592,25 @@ class PricingAgent:
         own_has_buybox = comp_result.get("own_has_buybox", False)
         target = _apply_strategy(ctx.strategy, ctx.current_price, floor_price, ctx.ceiling_price, competitors, own_has_buybox)
 
-        # 4. Decide
+        # 4. Confidence check — before deciding to act
+        confidence_score = _compute_confidence(ctx.current_price, target, floor_price, ctx.ceiling_price)
+        if confidence_score < _CONFIDENCE_THRESHOLD:
+            return PricingResult(
+                decision=PricingDecision.PENDING_APPROVAL,
+                old_price=ctx.current_price,
+                new_price=target,  # proposed but not applied
+                reasoning=(
+                    f"Kritik fiyat değişimi tespit edildi — güven skoru {confidence_score:.0f}/100 "
+                    f"(eşik {_CONFIDENCE_THRESHOLD:.0f}). "
+                    f"Önerilen fiyat {target} TL, onay bekleniyor."
+                ),
+                tool_calls=tool_calls,
+                duration_ms=int((time.monotonic() - start) * 1000),
+                confidence_score=confidence_score,
+                requires_approval=True,
+            )
+
+        # 5. Decide
         delta = abs(target - ctx.current_price)
         # hit_floor: only meaningful when we were pushed down TO the floor from above it.
         # Does not fire when current_price is already at/below floor (those edge cases stay NO_ACTION).
