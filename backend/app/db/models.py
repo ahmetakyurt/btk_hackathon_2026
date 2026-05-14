@@ -162,6 +162,8 @@ class PricingAgentLog(Base):
     new_price: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     decision: Mapped[str] = mapped_column(String(32), nullable=False)
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    confidence_score: Mapped[float | None] = mapped_column(nullable=True)
+    is_pending_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), index=True
     )
