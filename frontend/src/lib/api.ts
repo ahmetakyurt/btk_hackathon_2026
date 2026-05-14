@@ -116,6 +116,8 @@ export interface PricingLog {
   tool_calls: ToolCallEntry[] | null;
   duration_ms: number | null;
   created_at: string;
+  confidence_score: number | null;
+  is_pending_approval: boolean;
 }
 
 export interface ToolCallEntry {
