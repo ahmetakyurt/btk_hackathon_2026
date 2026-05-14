@@ -24,9 +24,9 @@ class PlatformStatusOut(BaseModel):
     platform_code: str
     platform_name: str
     external_id: str | None
-    current_price: Decimal | None
-    floor_price: Decimal | None
-    competitor_price: Decimal | None
+    current_price: float | None
+    floor_price: float | None
+    competitor_price: float | None
     ai_generated_title: str | None
     has_buybox: bool
     status: str
@@ -37,8 +37,8 @@ class ProductOut(BaseModel):
     id: int
     sku: str
     title: str
-    base_cost: Decimal
-    shipping_cost: Decimal
+    base_cost: float
+    shipping_cost: float
     stock: int
     category: str | None
     created_at: datetime

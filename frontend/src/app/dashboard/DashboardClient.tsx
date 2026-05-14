@@ -195,10 +195,10 @@ export default function DashboardClient({ data }: { data: DashboardSummary | nul
                   </td>
                   <td className="px-4 py-2.5 text-xs font-mono text-zinc-500">{log.sku ?? "—"}</td>
                   <td className="px-4 py-2.5 text-xs text-zinc-500">
-                    {log.old_price != null ? `${log.old_price.toFixed(2)} ₺` : "—"}
+                    {log.old_price != null ? `${Number(log.old_price).toFixed(2)} ₺` : "—"}
                   </td>
                   <td className="px-4 py-2.5 text-xs font-medium text-zinc-800 dark:text-zinc-200">
-                    {log.new_price != null ? `${log.new_price.toFixed(2)} ₺` : "—"}
+                    {log.new_price != null ? `${Number(log.new_price).toFixed(2)} ₺` : "—"}
                   </td>
                   <td className="px-4 py-2.5">
                     <span

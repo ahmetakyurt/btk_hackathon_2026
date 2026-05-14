@@ -46,7 +46,7 @@ function buildPoints(logs: PricingLog[]): ChartPoint[] {
         hour: "2-digit",
         minute: "2-digit",
       }),
-      price: l.new_price!,
+      price: Number(l.new_price),
       decision: l.decision,
       timestamp: new Date(l.created_at).getTime(),
     }))
@@ -122,7 +122,7 @@ export default function PriceHistoryChart({ logs, platformCode, floorPrice }: Pr
               strokeDasharray="4 4"
               strokeWidth={1}
               label={{
-                value: `Taban: ${floorPrice.toFixed(0)} ₺`,
+                value: `Taban: ${Number(floorPrice).toFixed(0)} ₺`,
                 fontSize: 9,
                 fill: "#f97316",
                 position: "insideBottomRight",
