@@ -169,7 +169,7 @@ async def trigger_pricing(
         "reasoning": log.reasoning,
         "tool_calls": log.tool_calls,
         "duration_ms": log.duration_ms,
-        "created_at": log.created_at.isoformat() if log.created_at else None,
+        "created_at": (log.created_at.isoformat() + "Z") if log.created_at else None,
     }, user_id=broadcast_user_id)
 
     return TriggerResponse(

@@ -116,14 +116,13 @@ function LogEntry({ log }: { log: PricingLog }) {
 export default function LogsClient({ userId }: { userId: string }) {
   const [logs, setLogs] = useState<PricingLog[]>([]);
   const [connected, setConnected] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
 
   // Initial load via authenticated proxy
   useEffect(() => {
     fetch(`/api/proxy/api/pricing/logs?limit=50`)
       .then((r) => r.json())
-      .then((data: PricingLog[]) => setLogs(data.reverse()))
+      .then((data: PricingLog[]) => setLogs(data))
       .catch(() => {});
   }, []);
 
@@ -151,8 +150,8 @@ export default function LogsClient({ userId }: { userId: string }) {
           const data = JSON.parse(e.data as string) as { type?: string } & PricingLog;
           if (data.type === "connected") return;
           setLogs((prev) => {
-            const next = [...prev, data as PricingLog];
-            return next.length > 100 ? next.slice(-100) : next;
+            const next = [data as PricingLog, ...prev];
+            return next.length > 100 ? next.slice(0, 100) : next;
           });
         } catch {}
       };
@@ -166,10 +165,6 @@ export default function LogsClient({ userId }: { userId: string }) {
       setConnected(false);
     };
   }, [userId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [logs]);
 
   return (
     <div className="flex flex-col h-full">
@@ -202,7 +197,6 @@ export default function LogsClient({ userId }: { userId: string }) {
             ))}
           </div>
         )}
-        <div ref={bottomRef} />
       </div>
     </div>
   );
