@@ -168,6 +168,30 @@ export default function LogsClient({ userId }: { userId: string }) {
   const [connected, setConnected] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
+  const handleApprove = async (logId: number) => {
+    try {
+      const res = await fetch(`/api/proxy/api/pricing/approve/${logId}`, { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
+      setLogs((prev) => prev.map((l) =>
+        l.id === logId ? { ...l, is_pending_approval: false, decision: "price_updated" } : l
+      ));
+    } catch (e) {
+      console.error("approve failed", e);
+    }
+  };
+
+  const handleReject = async (logId: number) => {
+    try {
+      const res = await fetch(`/api/proxy/api/pricing/reject/${logId}`, { method: "POST" });
+      if (!res.ok) throw new Error(await res.text());
+      setLogs((prev) => prev.map((l) =>
+        l.id === logId ? { ...l, is_pending_approval: false, decision: "no_action" } : l
+      ));
+    } catch (e) {
+      console.error("reject failed", e);
+    }
+  };
+
   // Initial load via authenticated proxy
   useEffect(() => {
     fetch(`/api/proxy/api/pricing/logs?limit=50`)
