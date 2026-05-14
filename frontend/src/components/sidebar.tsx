@@ -18,7 +18,7 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
   if (pathname.startsWith("/auth")) return null;
 
   return (
-    <aside className="w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 min-h-screen">
+    <aside className="w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 sticky top-0 h-screen overflow-y-auto">
       <div className="px-5 py-5 border-b border-zinc-200 dark:border-zinc-800">
         <span className="text-sm font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
           OptiPrice AI
