@@ -183,11 +183,17 @@ class CompetitorWatcher:
                 new_price=result.new_price,
                 decision=result.decision.value,
                 duration_ms=result.duration_ms,
+                confidence_score=result.confidence_score,
+                is_pending_approval=result.requires_approval,
             )
             session.add(log)
 
             if result.decision in (PricingDecision.PRICE_UPDATED, PricingDecision.FLOOR_HIT):
                 pps.current_price = result.new_price
+
+            pps.last_confidence_score = result.confidence_score
+            if result.requires_approval:
+                pps.requires_approval = True
 
             await session.commit()
             await session.refresh(log)
