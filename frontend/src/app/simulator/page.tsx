@@ -17,7 +17,7 @@ function CompetitorRow({
   productPlatformId: number;
   onUpdated: () => void;
 }) {
-  const [price, setPrice] = useState(competitor.price.toFixed(2));
+  const [price, setPrice] = useState(Number(competitor.price).toFixed(2));
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -109,7 +109,7 @@ function PlatformCard({
         <div className="text-right">
           <p className="text-xs text-zinc-400">Bizim</p>
           <p className="text-sm font-bold text-zinc-900 dark:text-zinc-50">
-            {state.own_price.toFixed(2)} ₺
+            {Number(state.own_price).toFixed(2)} ₺
           </p>
           {state.own_has_buybox && (
             <p className="text-[10px] text-green-600 font-semibold">Buybox ✓</p>
@@ -120,14 +120,25 @@ function PlatformCard({
       {/* Competitors */}
       <div className="px-4 py-2">
         <p className="text-[10px] text-zinc-400 uppercase tracking-wider mb-1.5">Rakipler</p>
-        {state.competitors.map((c) => (
-          <CompetitorRow
-            key={c.seller_name}
-            competitor={c}
-            productPlatformId={state.product_platform_id}
-            onUpdated={onUpdated}
-          />
-        ))}
+        {state.competitors.length === 0 ? (
+          <div className="rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-3 py-2">
+            <p className="text-[11px] text-amber-700 dark:text-amber-400">
+              Mock serviste rakip verisi yok.
+            </p>
+            <p className="text-[10px] text-amber-600 dark:text-amber-500 mt-0.5">
+              Ürün sayfasından &quot;Yeniden Listele&quot; yaparak rakipleri oluşturabilirsiniz.
+            </p>
+          </div>
+        ) : (
+          state.competitors.map((c) => (
+            <CompetitorRow
+              key={c.seller_name}
+              competitor={c}
+              productPlatformId={state.product_platform_id}
+              onUpdated={onUpdated}
+            />
+          ))
+        )}
       </div>
 
       {/* Product title */}

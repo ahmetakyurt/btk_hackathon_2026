@@ -33,6 +33,38 @@ def _platform_base_url(platform_code: str) -> str | None:
     }.get(platform_code)
 
 
+async def _ensure_product_in_mock(
+    pps: ProductPlatformStatus,
+    base_url: str,
+    client: httpx.AsyncClient,
+) -> str | None:
+    """Re-create a product in a mock service. Returns the new external_id or None."""
+    product = pps.product
+    payload: dict[str, Any] = {
+        "sku": product.sku,
+        "title": pps.ai_generated_title or product.title,
+        "description": pps.ai_generated_desc or "",
+        "category": product.category or "",
+        "price": float(pps.current_price) if pps.current_price else 0.0,
+        "stock": product.stock,
+        "keywords": [],
+        "raw_specs": {str(k): str(v) for k, v in (product.raw_specs or {}).items()},
+    }
+    if "amazon" in base_url:
+        payload["fulfillment"] = "FBM"
+
+    try:
+        r = await client.post(f"{base_url}/products", json=payload)
+        r.raise_for_status()
+        data = r.json()
+        new_external_id = data["external_id"]
+        logger.info("Re-created product %s in mock service (%s) → %s", product.sku, base_url, new_external_id)
+        return new_external_id
+    except Exception as exc:
+        logger.warning("Failed to re-create product %s in mock service %s: %s", product.sku, base_url, exc)
+        return None
+
+
 # ─── Response schemas ─────────────────────────────────────────────────────────
 
 class CompetitorInfo(BaseModel):
@@ -82,29 +114,55 @@ async def get_simulator_state(session: SessionDep, user_id: UserIdDep) -> list[P
             platform_code = pps.platform.code
             base_url = _platform_base_url(platform_code)
             if base_url is None:
-                continue  # own_site has no competitors
+                continue  # own_site has no competitor simulation
+
+            # Default fallback values from Supabase
+            own_price = float(pps.current_price) if pps.current_price else 0.0
+            own_has_buybox = pps.has_buybox or False
+            competitors: list[CompetitorInfo] = []
+
             try:
                 r = await client.get(f"{base_url}/products/{pps.external_id}/competitors")
-                r.raise_for_status()
-                data = r.json()
-                results.append(
-                    PlatformSimState(
-                        product_platform_id=pps.id,
-                        sku=pps.product.sku,
-                        product_title=pps.product.title,
-                        platform_code=platform_code,
-                        platform_name=pps.platform.display_name,
-                        external_id=pps.external_id,
-                        own_price=float(data["own_price"]),
-                        own_has_buybox=data["own_has_buybox"],
-                        competitors=[CompetitorInfo(**c) for c in data["competitors"]],
-                    )
-                )
+                if r.status_code == 404:
+                    # Product missing from mock service — try to re-create it
+                    new_external_id = await _ensure_product_in_mock(pps, base_url, client)
+                    if new_external_id:
+                        pps.external_id = new_external_id
+                        session.add(pps)
+                        await session.commit()
+                        # Fetch competitors for newly created product
+                        r2 = await client.get(f"{base_url}/products/{new_external_id}/competitors")
+                        r2.raise_for_status()
+                        data2 = r2.json()
+                        own_price = float(data2["own_price"])
+                        own_has_buybox = data2["own_has_buybox"]
+                        competitors = [CompetitorInfo(**c) for c in data2["competitors"]]
+                    # If re-creation failed, fall through to add with fallback values
+                else:
+                    r.raise_for_status()
+                    data = r.json()
+                    own_price = float(data["own_price"])
+                    own_has_buybox = data["own_has_buybox"]
+                    competitors = [CompetitorInfo(**c) for c in data["competitors"]]
             except Exception as exc:
                 logger.warning(
-                    "Could not fetch competitors for %s/%s: %s",
+                    "Could not fetch competitors for %s/%s (will show fallback): %s",
                     platform_code, pps.external_id, exc,
                 )
+
+            results.append(
+                PlatformSimState(
+                    product_platform_id=pps.id,
+                    sku=pps.product.sku,
+                    product_title=pps.product.title,
+                    platform_code=platform_code,
+                    platform_name=pps.platform.display_name,
+                    external_id=pps.external_id,
+                    own_price=own_price,
+                    own_has_buybox=own_has_buybox,
+                    competitors=competitors,
+                )
+            )
 
     return results
 
@@ -147,9 +205,42 @@ async def set_competitor_price(
                     "price": float(body.price),
                 },
             )
+            if r.status_code == 404:
+                # Product or competitor missing from mock — re-create product with fresh competitors
+                new_id = await _ensure_product_in_mock(pps, base_url, client)
+                if new_id is None:
+                    raise HTTPException(status_code=503, detail="Mock servis geçici olarak kullanılamıyor. Lütfen tekrar deneyin.")
+                pps.external_id = new_id
+                session.add(pps)
+                await session.commit()
+                # Fetch new competitors and pick the first one as target
+                r2 = await client.get(f"{base_url}/products/{new_id}/competitors")
+                r2.raise_for_status()
+                competitors_data = r2.json()
+                competitors_list = competitors_data.get("competitors", [])
+                if not competitors_list:
+                    raise HTTPException(status_code=400, detail="Bu platformda rakip bulunamadı.")
+                target = competitors_list[0]
+                # Set price on the first competitor
+                r3 = await client.post(
+                    f"{base_url}/admin/competitor-price",
+                    json={
+                        "external_id": new_id,
+                        "seller_name": target["seller_name"],
+                        "price": float(body.price),
+                    },
+                )
+                r3.raise_for_status()
+                return {
+                    **r3.json(),
+                    "note": f"Ürün mock serviste yeniden oluşturuldu. Rakip '{target['seller_name']}' fiyatı güncellendi.",
+                    "seller_name": target["seller_name"],
+                }
             r.raise_for_status()
             return r.json()
         except httpx.HTTPStatusError as exc:
-            raise HTTPException(status_code=exc.response.status_code, detail=exc.response.text)
+            raise HTTPException(status_code=exc.response.status_code, detail=str(exc))
+        except HTTPException:
+            raise
         except Exception as exc:
             raise HTTPException(status_code=503, detail=f"Mock service unavailable: {exc}")
