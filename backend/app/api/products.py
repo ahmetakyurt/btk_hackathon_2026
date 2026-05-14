@@ -482,6 +482,8 @@ def _to_product_out(product: Product) -> ProductOut:
                 has_buybox=s.has_buybox,
                 status=s.status,
                 error_message=getattr(s, "_error_message", None),
+                requires_approval=s.requires_approval,
+                last_confidence_score=s.last_confidence_score,
             )
             for s in product.platform_statuses
         ],
