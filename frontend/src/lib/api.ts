@@ -75,6 +75,8 @@ export interface PlatformStatus {
   has_buybox: boolean;
   status: "pending" | "listed" | "error";
   error_message?: string | null;
+  requires_approval: boolean;
+  last_confidence_score: number | null;
 }
 
 export interface Product {
