@@ -17,7 +17,7 @@ from sqlalchemy.orm import selectinload
 from app.agents.listing_agent import ListingAgent
 from app.config import get_settings
 from app.core.deps import get_current_user_id, get_optional_user_id
-from app.db.models import Platform, PlatformConnection, Product, ProductPlatformStatus
+from app.db.models import Platform, PlatformConnection, PricingAgentLog, Product, ProductPlatformStatus
 from app.db.session import get_session
 from app.integrations.base import IntegrationError
 from app.integrations.mock_amazon import MockAmazonService
@@ -455,6 +455,139 @@ async def retry_product_listing(
         total_failed=failed,
         product=_to_product_out(loaded),
     )
+
+
+# ─── Satış Asistanı (AI Q&A) ─────────────────────────────────────────────────
+
+class AskRequest(BaseModel):
+    question: str
+
+
+class AskResponse(BaseModel):
+    answer: str
+
+
+_ASSISTANT_SYSTEM = (
+    "Sen OptiPrice AI'ın Satış Asistanısın. "
+    "Bir e-ticaret satıcısına ürün fiyatlandırma kararları hakkında Türkçe, kısa ve net yanıtlar verirsin. "
+    "Yalnızca sana sağlanan ürün ve karar verilerini kullan. "
+    "Spekülatif yanıt verme; veri yoksa 'Bu konuda yeterli veri yok.' de."
+)
+
+
+def _build_ask_context(
+    product: Product,
+    platform_statuses: list[ProductPlatformStatus],
+    recent_logs: list[PricingAgentLog],
+) -> str:
+    lines = [
+        f"ÜRÜN: {product.title} (SKU: {product.sku})",
+        f"Maliyet: {float(product.base_cost):.2f} ₺  |  Kargo: {float(product.shipping_cost):.2f} ₺",
+        "",
+        "PLATFORM DURUMLARI:",
+    ]
+    for ps in platform_statuses:
+        platform_name = ps.platform.display_name if ps.platform else ps.platform_id
+        lines.append(
+            f"  • {platform_name}: fiyat={float(ps.current_price):.2f} ₺" if ps.current_price else f"  • {platform_name}: listelenmedi"
+        )
+        if ps.floor_price:
+            lines.append(f"    taban={float(ps.floor_price):.2f} ₺")
+        if ps.competitor_price:
+            lines.append(f"    rakip={float(ps.competitor_price):.2f} ₺")
+        lines.append(f"    buybox={'Bizde' if ps.has_buybox else 'Rakipte'}")
+
+    if recent_logs:
+        lines += ["", "SON AJAN KARARLARI (en yeni önce):"]
+        for log in recent_logs[:5]:
+            pps = log.product_platform
+            platform_code = pps.platform.code if pps and pps.platform else "?"
+            price_change = ""
+            if log.old_price is not None and log.new_price is not None:
+                price_change = f" | {float(log.old_price):.2f} → {float(log.new_price):.2f} ₺"
+            lines.append(
+                f"  • [{platform_code}] {log.decision}{price_change} — {log.reasoning or 'gerekçe yok'}"
+            )
+
+    return "\n".join(lines)
+
+
+@router.post("/{product_id}/ask", response_model=AskResponse)
+async def ask_sales_assistant(
+    product_id: int,
+    body: AskRequest,
+    session: SessionDep,
+    user_id: int | None = Depends(get_optional_user_id),
+) -> AskResponse:
+    """Natural language Q&A about a product's pricing decisions (powered by Gemini)."""
+    product = await session.scalar(
+        select(Product)
+        .where(Product.id == product_id)
+        .options(
+            selectinload(Product.platform_statuses).selectinload(
+                ProductPlatformStatus.platform
+            )
+        )
+    )
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if user_id is not None and product.user_id is not None and product.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    # Fetch last 10 pricing logs across all platform statuses
+    pps_ids = [ps.id for ps in product.platform_statuses]
+    recent_logs: list[PricingAgentLog] = []
+    if pps_ids:
+        rows = await session.scalars(
+            select(PricingAgentLog)
+            .where(PricingAgentLog.product_platform_id.in_(pps_ids))
+            .order_by(PricingAgentLog.created_at.desc())
+            .limit(10)
+            .options(
+                selectinload(PricingAgentLog.product_platform).selectinload(
+                    ProductPlatformStatus.platform
+                )
+            )
+        )
+        recent_logs = list(rows.all())
+
+    context = _build_ask_context(product, list(product.platform_statuses), recent_logs)
+    prompt = f"{context}\n\nKULLANICI SORUSU: {body.question}"
+
+    settings = get_settings()
+    if not settings.gemini_api_key:
+        return AskResponse(answer="Gemini API anahtarı yapılandırılmamış. Lütfen yöneticiyle iletişime geçin.")
+
+    try:
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+
+        def _call() -> str:
+            response = client.models.generate_content(
+                model=settings.gemini_model,
+                contents=[
+                    types.Content(
+                        role="user",
+                        parts=[types.Part(text=_ASSISTANT_SYSTEM + "\n\n" + prompt)],
+                    )
+                ],
+                config=types.GenerateContentConfig(temperature=0.3),
+            )
+            return response.text or "Yanıt üretilemedi."
+
+        answer = await asyncio.wait_for(
+            asyncio.to_thread(_call),
+            timeout=float(settings.gemini_timeout_seconds),
+        )
+        return AskResponse(answer=answer)
+
+    except TimeoutError:
+        return AskResponse(answer="Yanıt zaman aşımına uğradı. Lütfen tekrar deneyin.")
+    except Exception as exc:
+        logger.error("SalesAssistant Gemini error: %s", exc)
+        return AskResponse(answer="Bir hata oluştu. Lütfen tekrar deneyin.")
 
 
 # ─── Internal mapper ──────────────────────────────────────────────────────────

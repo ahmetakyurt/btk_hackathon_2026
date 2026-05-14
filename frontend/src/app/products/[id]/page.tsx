@@ -5,6 +5,9 @@ import { RetryButton } from "./retry-button";
 import { RetryAllButton } from "./RetryAllButton";
 import { TriggerButton } from "./trigger-button";
 import PriceHistoryChart from "./PriceHistoryChart";
+import { AgentReasoningCard } from "./AgentReasoningCard";
+import { AgentChainTimeline } from "./AgentChainTimeline";
+import { SalesAssistant } from "./SalesAssistant";
 
 async function getProduct(id: string): Promise<Product> {
   try {
@@ -157,6 +160,11 @@ export default async function ProductDetailPage({
               floorPrice={ps.floor_price}
             />
 
+            {/* Agent reasoning — most recent decision */}
+            {(logsMap.get(ps.id) ?? []).length > 0 && (
+              <AgentReasoningCard log={(logsMap.get(ps.id) ?? [])[0]} />
+            )}
+
             {/* Error detail */}
             {ps.status === "error" && ps.error_message && (
               <div className="mx-4 mt-2 rounded-md bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 px-3 py-2">
@@ -191,6 +199,16 @@ export default async function ProductDetailPage({
           </div>
         ))}
       </div>
+
+      {/* Agent chain timeline */}
+      <AgentChainTimeline
+        platformStatuses={product.platform_statuses}
+        logsMap={logsMap}
+        productCreatedAt={product.created_at}
+      />
+
+      {/* Sales assistant */}
+      <SalesAssistant productId={product.id} />
     </div>
   );
 }
