@@ -31,6 +31,8 @@ class PlatformStatusOut(BaseModel):
     has_buybox: bool
     status: str
     error_message: str | None = None
+    requires_approval: bool = False
+    last_confidence_score: float | None = None
 
 
 class ProductOut(BaseModel):
