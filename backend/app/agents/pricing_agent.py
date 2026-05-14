@@ -26,6 +26,7 @@ _OUTLIER_GAP_RATIO = Decimal("0.20")          # cheapest >20% below 2nd → trea
 _PROFIT_MAX_RAISE_STEP = Decimal("1.05")      # max 5% raise per step when holding buybox
 _MAX_GEMINI_TURNS = 6
 _GEMINI_TOTAL_TIMEOUT = 40.0                  # hard cap across all turns
+_CONFIDENCE_THRESHOLD = 75.0                  # below this → requires human approval
 
 
 class PricingStrategy(str, Enum):
