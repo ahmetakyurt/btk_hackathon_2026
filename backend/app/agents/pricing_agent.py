@@ -525,8 +525,15 @@ class PricingAgent:
                         final_decision = PricingDecision(result.get("decision", "no_action"))
                     except ValueError:
                         final_decision = PricingDecision.NO_ACTION
-                elif tool_name == "update_platform_price" and result.get("success"):
-                    new_price = Decimal(str(result["new_price"])).quantize(Decimal("0.01"))
+                elif tool_name == "update_platform_price":
+                    if result.get("pending_approval"):
+                        requires_approval = True
+                        final_decision = PricingDecision.PENDING_APPROVAL
+                        new_price = Decimal(str(result.get("_proposed_price", ctx.current_price))).quantize(Decimal("0.01"))
+                        confidence_score = result.get("_confidence_score", confidence_score)
+                    elif result.get("success"):
+                        new_price = Decimal(str(result["new_price"])).quantize(Decimal("0.01"))
+                        confidence_score = result.get("_confidence_score", confidence_score)
 
                 fn_response_parts.append(
                     types.Part(
