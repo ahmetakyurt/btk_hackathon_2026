@@ -470,6 +470,8 @@ class PricingAgent:
         final_reasoning = ""
         final_decision = PricingDecision.NO_ACTION
         new_price = ctx.current_price
+        confidence_score: float = 100.0
+        requires_approval: bool = False
         turn = 0
 
         contents: list[types.Content] = [
