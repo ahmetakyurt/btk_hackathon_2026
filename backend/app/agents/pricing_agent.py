@@ -545,7 +545,12 @@ class PricingAgent:
 
         if not final_reasoning:
             final_reasoning = f"Gemini completed in {turn + 1} turn(s)."
-        if new_price != ctx.current_price and final_decision == PricingDecision.NO_ACTION:
+        if requires_approval:
+            final_reasoning = (
+                f"Kritik fiyat değişimi tespit edildi — güven skoru {confidence_score:.0f}/100. "
+                "Onay bekleniyor. " + final_reasoning
+            )
+        elif new_price != ctx.current_price and final_decision == PricingDecision.NO_ACTION:
             final_decision = PricingDecision.PRICE_UPDATED
 
         return PricingResult(
@@ -555,6 +560,8 @@ class PricingAgent:
             reasoning=final_reasoning,
             tool_calls=tool_calls,
             duration_ms=int((time.monotonic() - start) * 1000),
+            confidence_score=confidence_score,
+            requires_approval=requires_approval,
         )
 
     async def _run_deterministic(
