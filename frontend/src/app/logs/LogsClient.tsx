@@ -267,7 +267,7 @@ export default function LogsClient({ userId }: { userId: string }) {
         ) : (
           <div>
             {logs.map((log, i) => (
-              <LogEntry key={log.id ?? i} log={log} />
+              <LogEntry key={log.id ?? i} log={log} onApprove={handleApprove} onReject={handleReject} />
             ))}
           </div>
         )}
