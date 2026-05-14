@@ -75,12 +75,16 @@ function ToolCallRow({ tc }: { tc: ToolCallEntry }) {
   );
 }
 
-function LogEntry({ log }: { log: PricingLog }) {
+function LogEntry({ log, onApprove, onReject }: {
+  log: PricingLog;
+  onApprove: (id: number) => void;
+  onReject: (id: number) => void;
+}) {
   const decisionColor = DECISION_COLOR[log.decision] ?? "text-zinc-400";
   const platformLabel = log.platform_code ? (PLATFORM_LABEL[log.platform_code] ?? log.platform_code) : "—";
 
   return (
-    <div className="border-b border-zinc-800 py-3 font-mono text-xs leading-relaxed">
+    <div className={`border-b py-3 font-mono text-xs leading-relaxed ${log.is_pending_approval ? "border-orange-900/50 bg-orange-950/20" : "border-zinc-800"}`}>
       <div className="flex items-baseline gap-2 flex-wrap">
         <span className="text-zinc-500 shrink-0">[{formatTime(log.created_at)}]</span>
         <span className="text-purple-400 font-semibold">{log.agent_name}</span>
@@ -94,6 +98,9 @@ function LogEntry({ log }: { log: PricingLog }) {
         )}
         <span className="text-zinc-500">·</span>
         <span className="text-zinc-500 italic">{log.trigger_event}</span>
+        {log.is_pending_approval && (
+          <span className="ml-1 px-1.5 py-0.5 rounded text-orange-300 bg-orange-900/50 text-[10px] font-semibold">⚠ ONAY BEKLİYOR</span>
+        )}
       </div>
 
       {log.tool_calls && log.tool_calls.length > 0 && (
@@ -111,12 +118,21 @@ function LogEntry({ log }: { log: PricingLog }) {
         </div>
       )}
 
+      {log.confidence_score != null && (
+        <ConfidenceBar score={log.confidence_score} />
+      )}
+
       <div className="mt-1.5 ml-4">
         <span className="text-zinc-600">↳ DECISION: </span>
         <span className={`font-semibold ${decisionColor}`}>{log.decision}</span>
         {log.old_price != null && log.new_price != null && log.decision === "price_updated" && (
           <span className="text-zinc-400">
             {" "}({Number(log.old_price).toFixed(2)} → {Number(log.new_price).toFixed(2)} ₺)
+          </span>
+        )}
+        {log.decision === "pending_approval" && log.new_price != null && (
+          <span className="text-orange-400">
+            {" "}(önerilen: {Number(log.new_price).toFixed(2)} ₺)
           </span>
         )}
         {log.decision === "floor_hit" && log.new_price != null && (
@@ -126,6 +142,23 @@ function LogEntry({ log }: { log: PricingLog }) {
           <span className="text-zinc-600"> in {log.duration_ms}ms</span>
         )}
       </div>
+
+      {log.is_pending_approval && (
+        <div className="mt-2 ml-4 flex gap-2">
+          <button
+            onClick={() => onApprove(log.id)}
+            className="px-3 py-1 rounded text-[11px] font-semibold bg-green-700 hover:bg-green-600 text-white transition-colors"
+          >
+            Onayla
+          </button>
+          <button
+            onClick={() => onReject(log.id)}
+            className="px-3 py-1 rounded text-[11px] font-semibold bg-red-800 hover:bg-red-700 text-white transition-colors"
+          >
+            Reddet
+          </button>
+        </div>
+      )}
     </div>
   );
 }
