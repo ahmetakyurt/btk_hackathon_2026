@@ -106,6 +106,21 @@ export default async function ProductDetailPage({
               </span>
             </div>
 
+            {/* Pending approval warning */}
+            {ps.requires_approval && (
+              <div className="mx-4 mt-2 rounded-md bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 px-3 py-2">
+                <p className="text-xs font-medium text-orange-700 dark:text-orange-400">
+                  ⚠ Onay Bekliyor
+                </p>
+                <p className="text-[11px] text-orange-600 dark:text-orange-500 mt-0.5">
+                  Ajan kritik bir fiyat değişimi önerdi. Canlı loglardan onaylayın.
+                  {ps.last_confidence_score != null && (
+                    <> Güven skoru: <strong>{ps.last_confidence_score.toFixed(0)}/100</strong></>
+                  )}
+                </p>
+              </div>
+            )}
+
             {/* Floor hit warning */}
             {ps.status === "listed" &&
               ps.current_price != null &&
