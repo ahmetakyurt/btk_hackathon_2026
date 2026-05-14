@@ -114,6 +114,8 @@ class ProductPlatformStatus(Base):
     has_buybox: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    requires_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    last_confidence_score: Mapped[float | None] = mapped_column(nullable=True)
 
     product: Mapped[Product] = relationship(back_populates="platform_statuses")
     platform: Mapped[Platform] = relationship()
