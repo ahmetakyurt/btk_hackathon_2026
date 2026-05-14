@@ -59,6 +59,8 @@ class LogOut(BaseModel):
     tool_calls: Any
     duration_ms: int | None
     created_at: datetime
+    confidence_score: float | None = None
+    is_pending_approval: bool = False
 
 
 # ─── Endpoints ────────────────────────────────────────────────────────────────
