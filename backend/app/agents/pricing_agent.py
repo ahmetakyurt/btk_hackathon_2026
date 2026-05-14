@@ -654,4 +654,5 @@ class PricingAgent:
             reasoning=reasoning,
             tool_calls=tool_calls,
             duration_ms=int((time.monotonic() - start) * 1000),
+            confidence_score=confidence_score,
         )
