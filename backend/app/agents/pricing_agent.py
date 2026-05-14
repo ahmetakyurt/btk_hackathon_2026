@@ -66,6 +66,8 @@ class PricingResult:
     reasoning: str
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     duration_ms: int = 0
+    confidence_score: float = 100.0
+    requires_approval: bool = False
 
 
 # ─── Pure tool functions (single source of truth for floor formula) ────────────
