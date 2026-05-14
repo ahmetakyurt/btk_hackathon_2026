@@ -265,3 +265,71 @@ async def get_platform_pricing_logs(
         .options(*_LOG_LOAD_OPTIONS)
     )
     return [_log_to_out(r) for r in rows.all()]
+
+
+@router.post("/approve/{log_id}", response_model=dict)
+async def approve_pricing(
+    log_id: int,
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> dict:
+    """Apply a pending pricing decision after human review."""
+    log = await session.scalar(
+        select(PricingAgentLog)
+        .where(PricingAgentLog.id == log_id)
+        .options(*_LOG_LOAD_OPTIONS)
+    )
+    if log is None:
+        raise HTTPException(status_code=404, detail="Log not found")
+    if not log.is_pending_approval:
+        raise HTTPException(status_code=400, detail="This log is not pending approval")
+
+    pps = log.product_platform
+    if pps.product.user_id is not None and pps.product.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your product")
+
+    platform = pps.platform
+    integration = _make_integration(platform)
+    proposed_price = float(log.new_price)
+
+    success = await integration.update_price(pps.external_id, proposed_price)
+    if not success:
+        raise HTTPException(status_code=502, detail="Platform price update failed")
+
+    log.is_pending_approval = False
+    log.decision = PricingDecision.PRICE_UPDATED.value
+    pps.current_price = log.new_price
+    pps.requires_approval = False
+    pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
+
+    await session.commit()
+    return {"ok": True, "log_id": log_id, "new_price": proposed_price}
+
+
+@router.post("/reject/{log_id}", response_model=dict)
+async def reject_pricing(
+    log_id: int,
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> dict:
+    """Reject a pending pricing decision — keeps current price unchanged."""
+    log = await session.scalar(
+        select(PricingAgentLog)
+        .where(PricingAgentLog.id == log_id)
+        .options(*_LOG_LOAD_OPTIONS)
+    )
+    if log is None:
+        raise HTTPException(status_code=404, detail="Log not found")
+    if not log.is_pending_approval:
+        raise HTTPException(status_code=400, detail="This log is not pending approval")
+
+    pps = log.product_platform
+    if pps.product.user_id is not None and pps.product.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your product")
+
+    log.is_pending_approval = False
+    log.decision = PricingDecision.NO_ACTION.value
+    pps.requires_approval = False
+
+    await session.commit()
+    return {"ok": True, "log_id": log_id}
