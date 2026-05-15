@@ -166,7 +166,6 @@ function LogEntry({ log, onApprove, onReject }: {
 export default function LogsClient({ userId }: { userId: string }) {
   const [logs, setLogs] = useState<PricingLog[]>([]);
   const [connected, setConnected] = useState(false);
-  const [sseLost, setSseLost] = useState(false);
   const esRef = useRef<EventSource | null>(null);
 
   const handleApprove = async (logId: number) => {
@@ -218,7 +217,6 @@ export default function LogsClient({ userId }: { userId: string }) {
       es.onopen = () => setConnected(true);
 
       es.onerror = () => {
-        setSseLost(true);
         es.close();
         retryTimer = setTimeout(connect, 3000);
       };
@@ -226,7 +224,7 @@ export default function LogsClient({ userId }: { userId: string }) {
       es.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data as string) as { type?: string } & PricingLog;
-          if (data.type === "connected") { setConnected(true); setSseLost(false); return; }
+          if (data.type === "connected") { setConnected(true); return; }
           setLogs((prev) => {
             const next = [data as PricingLog, ...prev];
             return next.length > 100 ? next.slice(0, 100) : next;
@@ -253,10 +251,10 @@ export default function LogsClient({ userId }: { userId: string }) {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`w-2 h-2 rounded-full ${connected && !sseLost ? "bg-green-500 animate-pulse" : connected ? "bg-yellow-500 animate-pulse" : "bg-zinc-400"}`}
+            className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-zinc-400"}`}
           />
           <span className="text-xs text-zinc-500">
-            {!connected ? "Bağlanıyor…" : sseLost ? "Yeniden bağlanıyor…" : "Canlı bağlantı"}
+            {connected ? "Bağlı" : "Bağlanıyor…"}
           </span>
         </div>
       </div>
