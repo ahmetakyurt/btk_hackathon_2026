@@ -83,7 +83,19 @@ export default async function ProductsPage() {
                   <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">
                     {Number(product.base_cost).toFixed(2)} ₺
                   </td>
-                  <td className="px-4 py-3 text-zinc-900 dark:text-zinc-50">{product.stock}</td>
+                  <td className="px-4 py-3">
+                    <span className="text-zinc-900 dark:text-zinc-50">{product.stock}</span>
+                    {product.stock > 0 && product.stock <= 10 && (
+                      <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">
+                        Düşük Stok
+                      </span>
+                    )}
+                    {product.stock === 0 && (
+                      <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium bg-zinc-200 text-zinc-600">
+                        Tükendi
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-1.5 flex-wrap">
                       {product.platform_statuses.map((ps) => (

@@ -154,6 +154,20 @@ export interface DashboardSummary {
   total_listed: number;
 }
 
+export interface Insight {
+  title: string;
+  description: string;
+  priority: number;
+  platform_code: string | null;
+  action_type: string;
+}
+
+export interface InsightsResponse {
+  insights: Insight[];
+  generated_at: string;
+  is_ai_generated: boolean;
+}
+
 export interface CompetitorInfo {
   seller_name: string;
   price: number;

@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { type DashboardSummary } from "@/lib/api";
+import { type DashboardSummary, type InsightsResponse } from "@/lib/api";
+import InsightsCard from "@/components/InsightsCard";
 
 const PLATFORM_COLORS: Record<string, string> = {
   trendyol: "#f97316",
@@ -48,7 +49,7 @@ function StatCard({ label, value, detail }: { label: string; value: string; deta
   );
 }
 
-export default function DashboardClient({ data }: { data: DashboardSummary | null }) {
+export default function DashboardClient({ data, insights }: { data: DashboardSummary | null; insights: InsightsResponse | null }) {
   if (!data) {
     return (
       <div className="p-8">
@@ -148,6 +149,11 @@ export default function DashboardClient({ data }: { data: DashboardSummary | nul
             ))}
           </div>
         </div>
+      </div>
+
+      {/* AI Insights */}
+      <div className="mb-6">
+        <InsightsCard data={insights} />
       </div>
 
       {/* Recent decisions table */}

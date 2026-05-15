@@ -11,7 +11,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -28,6 +28,8 @@ from app.integrations.base import IntegrationError
 logger = logging.getLogger(__name__)
 
 _MIN_COMPETITOR_DELTA = Decimal("0.50")  # TL — ignore smaller price changes
+_LOW_STOCK_THRESHOLD = 10                # units — trigger profit_max below this
+_LOW_STOCK_COOLDOWN_HOURS = 1            # hours — re-trigger low_stock at most once/hour
 
 
 class CompetitorWatcher:
@@ -120,18 +122,46 @@ class CompetitorWatcher:
             # Naive UTC — DB column is TIMESTAMP WITHOUT TIME ZONE
             pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
-            # Only trigger PricingAgent if min competitor price changed meaningfully
-            if not _price_changed(old_min, new_min):
+            stock_is_low = product.stock <= _LOW_STOCK_THRESHOLD
+            price_did_change = _price_changed(old_min, new_min)
+
+            # Determine whether to fire the agent
+            should_fire = price_did_change
+            if stock_is_low and not price_did_change:
+                # Fire at most once per cooldown window to avoid spam
+                cooldown_start = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=_LOW_STOCK_COOLDOWN_HOURS)
+                recent_low_stock = await session.scalar(
+                    select(PricingAgentLog).where(
+                        PricingAgentLog.product_platform_id == pps.id,
+                        PricingAgentLog.trigger_event == "low_stock",
+                        PricingAgentLog.created_at >= cooldown_start,
+                    ).limit(1)
+                )
+                if recent_low_stock is None:
+                    should_fire = True
+
+            if not should_fire:
                 await session.commit()
                 return
 
-            logger.info(
-                "Competitor price change detected: %s/%s %s → %s TL",
-                platform.code, product.sku,
-                old_min or "?", new_min,
-            )
+            if price_did_change:
+                logger.info(
+                    "Competitor price change detected: %s/%s %s → %s TL",
+                    platform.code, product.sku, old_min or "?", new_min,
+                )
+            if stock_is_low:
+                logger.info(
+                    "Low stock trigger: %s/%s stock=%d ≤ %d",
+                    platform.code, product.sku, product.stock, _LOW_STOCK_THRESHOLD,
+                )
 
-            # Build pricing context
+            # Build pricing context — override strategy to profit_max on low stock
+            effective_strategy = (
+                PricingStrategy.PROFIT_MAX if stock_is_low
+                else PricingStrategy(platform.pricing_strategy)
+            )
+            trigger_event = "low_stock" if stock_is_low else "competitor_change"
+
             floor_price = pps.floor_price or compute_floor_price(
                 product.base_cost,
                 product.shipping_cost,
@@ -144,7 +174,7 @@ class CompetitorWatcher:
                 product_platform_id=pps.id,
                 sku=product.sku,
                 platform_code=platform.code,
-                strategy=PricingStrategy(platform.pricing_strategy),
+                strategy=effective_strategy,
                 current_price=current_price,
                 floor_price=floor_price,
                 ceiling_price=ceiling_price,
@@ -161,21 +191,23 @@ class CompetitorWatcher:
                 timeout=float(settings.gemini_timeout_seconds),
             )
 
-            result = await agent.run(ctx, integration, trigger_event="competitor_change")
+            result = await agent.run(ctx, integration, trigger_event=trigger_event)
 
             # Persist log
             log = PricingAgentLog(
                 product_platform_id=pps.id,
                 agent_name="PricingAgent",
-                trigger_event="competitor_change",
+                trigger_event=trigger_event,
                 input_snapshot={
                     "sku": product.sku,
                     "platform_code": platform.code,
-                    "strategy": platform.pricing_strategy,
+                    "strategy": effective_strategy.value,
                     "current_price": float(current_price),
                     "floor_price": float(floor_price),
                     "competitor_price": float(new_min),
                     "old_competitor_price": float(old_min) if old_min else None,
+                    "stock": product.stock,
+                    "low_stock": stock_is_low,
                 },
                 reasoning=result.reasoning,
                 tool_calls=result.tool_calls,
