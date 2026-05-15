@@ -23,6 +23,9 @@ export default async function HomePage() {
             <a href="#platforms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Platformlar
             </a>
+            <Link href="/pricing" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Fiyatlandırma
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <Link
