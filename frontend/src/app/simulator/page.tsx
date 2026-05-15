@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { type PlatformSimState, type CompetitorInfo } from "@/lib/api";
 
 const PLATFORM_COLOR: Record<string, string> = {
@@ -20,6 +20,13 @@ function CompetitorRow({
   const [price, setPrice] = useState(Number(competitor.price).toFixed(2));
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const editing = useRef(false);
+
+  useEffect(() => {
+    if (!editing.current) {
+      setPrice(Number(competitor.price).toFixed(2));
+    }
+  }, [competitor.price]);
 
   async function handleUpdate() {
     const parsed = parseFloat(price);
@@ -65,6 +72,8 @@ function CompetitorRow({
         min="0"
         value={price}
         onChange={(e) => setPrice(e.target.value)}
+        onFocus={() => { editing.current = true; }}
+        onBlur={() => { editing.current = false; }}
         className="w-24 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs text-zinc-900 dark:text-zinc-50 focus:outline-none focus:ring-1 focus:ring-zinc-400"
       />
       <span className="text-xs text-zinc-400">₺</span>

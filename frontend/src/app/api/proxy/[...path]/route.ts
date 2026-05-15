@@ -33,7 +33,10 @@ async function forward(req: NextRequest, ctx: { params: Promise<{ path: string[]
   const body = await res.text();
   return new NextResponse(body, {
     status: res.status,
-    headers: { "Content-Type": res.headers.get("content-type") ?? "application/json" },
+    headers: {
+      "Content-Type": res.headers.get("content-type") ?? "application/json",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
