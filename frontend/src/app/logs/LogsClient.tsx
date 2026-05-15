@@ -274,7 +274,7 @@ export default function LogsClient({ userId }: { userId: string }) {
       {/* Terminal */}
       <div
         ref={terminalRef}
-        onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 300)}
+        onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 50)}
         className="flex-1 overflow-auto bg-zinc-950 p-4 relative"
       >
         {logs.length === 0 ? (
