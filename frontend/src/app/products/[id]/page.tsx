@@ -8,6 +8,7 @@ import PriceHistoryChart from "./PriceHistoryChart";
 import { AgentReasoningCard } from "./AgentReasoningCard";
 import { AgentChainTimeline } from "./AgentChainTimeline";
 import { SalesAssistant } from "./SalesAssistant";
+import { FloatingActions } from "./FloatingActions";
 
 async function getProduct(id: string): Promise<Product> {
   try {
@@ -208,7 +209,11 @@ export default async function ProductDetailPage({
       />
 
       {/* Sales assistant */}
-      <SalesAssistant productId={product.id} />
+      <div id="sales-assistant">
+        <SalesAssistant productId={product.id} />
+      </div>
+
+      <FloatingActions />
     </div>
   );
 }

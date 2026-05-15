@@ -166,6 +166,7 @@ function LogEntry({ log, onApprove, onReject }: {
 export default function LogsClient({ userId }: { userId: string }) {
   const [logs, setLogs] = useState<PricingLog[]>([]);
   const [connected, setConnected] = useState(false);
+  const [sortDesc, setSortDesc] = useState(true);
   const esRef = useRef<EventSource | null>(null);
 
   const handleApprove = async (logId: number) => {
@@ -249,13 +250,22 @@ export default function LogsClient({ userId }: { userId: string }) {
           <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Canlı Loglar</h1>
           <p className="text-xs text-zinc-400 mt-0.5">Ajan kararları gerçek zamanlı akıyor</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-zinc-400"}`}
-          />
-          <span className="text-xs text-zinc-500">
-            {connected ? "Bağlı" : "Bağlanıyor…"}
-          </span>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSortDesc((v) => !v)}
+            className="text-xs text-zinc-500 hover:text-zinc-300 border border-zinc-700 rounded px-2 py-1 transition-colors"
+          >
+            {sortDesc ? "En Yeni ↓" : "En Eski ↑"}
+          </button>
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-2 h-2 rounded-full ${connected ? "bg-green-500 animate-pulse" : "bg-zinc-400"}`}
+            />
+            <span className="text-xs text-zinc-500">
+              {connected ? "Bağlı" : "Bağlanıyor…"}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -269,7 +279,7 @@ export default function LogsClient({ userId }: { userId: string }) {
           </div>
         ) : (
           <div>
-            {logs.map((log, i) => (
+            {(sortDesc ? logs : [...logs].reverse()).map((log, i) => (
               <LogEntry key={log.id ?? i} log={log} onApprove={handleApprove} onReject={handleReject} />
             ))}
           </div>
