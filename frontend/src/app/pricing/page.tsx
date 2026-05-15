@@ -98,6 +98,9 @@ export default function PricingPage() {
             <Link href="/#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
               Nasıl Çalışır
             </Link>
+            <Link href="/#platforms" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+              Platformlar
+            </Link>
             <Link href="/pricing" className="text-sm text-foreground font-medium transition-colors">
               Fiyatlandırma
             </Link>

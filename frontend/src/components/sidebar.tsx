@@ -12,7 +12,7 @@ const NAV = [
   { href: "/connections", label: "Platform Bağlantıları" },
   { href: "/logs", label: "Canlı Loglar" },
   { href: "/simulator", label: "Rakip Simülatörü" },
-  { href: "/pricing", label: "Fiyatlandırma" },
+  { href: "/plan", label: "Planım" },
 ];
 
 export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?: string | null }) {
