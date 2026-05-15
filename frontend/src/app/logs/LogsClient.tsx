@@ -290,19 +290,19 @@ export default function LogsClient({ userId }: { userId: string }) {
             ))}
           </div>
         )}
-
-        {/* Yukarı çık butonu */}
-        {showScrollTop && (
-          <button
-            type="button"
-            onClick={() => terminalRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
-            title="Yukarı çık"
-            className="fixed bottom-6 right-4 z-50 w-10 h-10 rounded-full bg-zinc-700 hover:bg-zinc-600 shadow-lg flex items-center justify-center text-white text-sm font-bold transition-all"
-          >
-            ↑
-          </button>
-        )}
       </div>
+
+      {/* Yukarı çık butonu — terminal div'in dışında, ürün sayfasındakiyle aynı */}
+      {showScrollTop && (
+        <button
+          type="button"
+          onClick={() => terminalRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          title="Yukarı çık"
+          className="fixed bottom-6 right-4 z-50 w-10 h-10 rounded-full bg-zinc-700 hover:bg-zinc-600 shadow-lg flex items-center justify-center text-white text-sm font-bold transition-all"
+        >
+          ↑
+        </button>
+      )}
     </div>
   );
 }
