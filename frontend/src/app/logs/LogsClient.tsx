@@ -169,7 +169,6 @@ export default function LogsClient({ userId }: { userId: string }) {
   const [sortDesc, setSortDesc] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const esRef = useRef<EventSource | null>(null);
-  const terminalRef = useRef<HTMLDivElement>(null);
 
   const handleApprove = async (logId: number) => {
     try {
@@ -194,6 +193,15 @@ export default function LogsClient({ userId }: { userId: string }) {
       console.error("reject failed", e);
     }
   };
+
+  // Scroll-to-top visibility — tracks main scroll container
+  useEffect(() => {
+    const main = document.getElementById("main-scroll");
+    if (!main) return;
+    const onScroll = () => setShowScrollTop(main.scrollTop > 300);
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
+  }, []);
 
   // Initial load via authenticated proxy — also confirms backend is reachable
   useEffect(() => {
@@ -272,11 +280,7 @@ export default function LogsClient({ userId }: { userId: string }) {
       </div>
 
       {/* Terminal */}
-      <div
-        ref={terminalRef}
-        onScroll={(e) => setShowScrollTop(e.currentTarget.scrollTop > 50)}
-        className="flex-1 overflow-auto bg-zinc-950 p-4 relative"
-      >
+      <div className="flex-1 overflow-auto bg-zinc-950 p-4">
         {logs.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <p className="text-zinc-600 font-mono text-sm">
@@ -296,7 +300,7 @@ export default function LogsClient({ userId }: { userId: string }) {
       {showScrollTop && (
         <button
           type="button"
-          onClick={() => terminalRef.current?.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => document.getElementById("main-scroll")?.scrollTo({ top: 0, behavior: "smooth" })}
           title="Yukarı çık"
           className="fixed bottom-6 right-4 z-50 w-10 h-10 rounded-full bg-zinc-700 hover:bg-zinc-600 shadow-lg flex items-center justify-center text-white text-sm font-bold transition-all"
         >

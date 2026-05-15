@@ -2,14 +2,20 @@
 
 import { useEffect, useState } from "react";
 
+function getMain(): HTMLElement | null {
+  return document.getElementById("main-scroll");
+}
+
 export function FloatingActions() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [assistantVisible, setAssistantVisible] = useState(false);
 
   useEffect(() => {
-    const onScroll = () => setShowScrollTop(window.scrollY > 300);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const main = getMain();
+    if (!main) return;
+    const onScroll = () => setShowScrollTop(main.scrollTop > 300);
+    main.addEventListener("scroll", onScroll, { passive: true });
+    return () => main.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
@@ -25,7 +31,7 @@ export function FloatingActions() {
 
   return (
     <>
-      {/* Robot butonu — sağ üst köşe, asistan görünürse kaybolur */}
+      {/* Robot butonu — sağ üst köşe, asistan görününce kaybolur */}
       {!assistantVisible && (
         <button
           type="button"
@@ -39,11 +45,11 @@ export function FloatingActions() {
         </button>
       )}
 
-      {/* Yukarı çık butonu — aşağı kaydırınca sağ altta belirir */}
+      {/* Yukarı çık butonu */}
       {showScrollTop && (
         <button
           type="button"
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          onClick={() => getMain()?.scrollTo({ top: 0, behavior: "smooth" })}
           title="Yukarı çık"
           className="fixed bottom-6 right-4 z-50 w-10 h-10 rounded-full bg-zinc-700 hover:bg-zinc-600 shadow-lg flex items-center justify-center text-white text-sm font-bold transition-all"
         >

@@ -37,7 +37,7 @@ export default async function RootLayout({
             userName={session.user.fullName ?? session.user.name ?? undefined}
           />
         )}
-        <main className="flex-1 overflow-auto bg-zinc-50 dark:bg-zinc-950">
+        <main id="main-scroll" className="flex-1 overflow-auto bg-zinc-50 dark:bg-zinc-950">
           {children}
         </main>
       </body>
