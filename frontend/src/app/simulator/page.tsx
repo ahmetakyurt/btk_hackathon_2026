@@ -223,13 +223,14 @@ export default function SimulatorPage() {
         ))}
       </div>
 
-      {!loading && states.length > 0 && (
+      {states.length > 0 && (
         <div className="mt-6">
           <button
-            onClick={() => { setLoading(true); loadState(); }}
-            className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+            onClick={() => loadState()}
+            disabled={loading}
+            className="text-xs text-zinc-400 hover:text-zinc-600 disabled:opacity-50 transition-colors"
           >
-            ↻ Yenile
+            {loading ? "Yükleniyor…" : "↻ Yenile"}
           </button>
         </div>
       )}

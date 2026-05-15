@@ -53,7 +53,8 @@ export default async function ProductsPage() {
         </div>
       ) : products.length > 0 ? (
         <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-zinc-50 dark:bg-zinc-800 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium text-zinc-500">SKU</th>
@@ -112,6 +113,7 @@ export default async function ProductsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       ) : null}
     </div>
