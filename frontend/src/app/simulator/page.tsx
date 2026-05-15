@@ -152,9 +152,11 @@ function PlatformCard({
 export default function SimulatorPage() {
   const [states, setStates] = useState<PlatformSimState[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadState = useCallback(async () => {
+  const loadState = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
     try {
       const r = await fetch("/api/proxy/api/simulator/state");
       if (!r.ok) throw new Error(`${r.status}`);
@@ -165,6 +167,7 @@ export default function SimulatorPage() {
       setError(`Yüklenemedi: ${err instanceof Error ? err.message : "bilinmiyor"}`);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -216,7 +219,7 @@ export default function SimulatorPage() {
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {platformStates.map((s) => (
-                <PlatformCard key={s.product_platform_id} state={s} onUpdated={loadState} />
+                <PlatformCard key={s.product_platform_id} state={s} onUpdated={() => loadState(true)} />
               ))}
             </div>
           </div>
@@ -226,11 +229,11 @@ export default function SimulatorPage() {
       {states.length > 0 && (
         <div className="mt-6">
           <button
-            onClick={() => loadState()}
-            disabled={loading}
+            onClick={() => loadState(true)}
+            disabled={refreshing}
             className="text-xs text-zinc-400 hover:text-zinc-600 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Yükleniyor…" : "↻ Yenile"}
+            {refreshing ? "Yükleniyor…" : "↻ Yenile"}
           </button>
         </div>
       )}
