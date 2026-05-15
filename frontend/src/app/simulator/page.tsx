@@ -163,6 +163,7 @@ export default function SimulatorPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefreshed, setLastRefreshed] = useState<string | null>(null);
 
   const loadState = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -172,6 +173,7 @@ export default function SimulatorPage() {
       const data = (await r.json()) as PlatformSimState[];
       setStates(data);
       setError(null);
+      setLastRefreshed(new Date().toLocaleTimeString("tr-TR"));
     } catch (err) {
       setError(`Yüklenemedi: ${err instanceof Error ? err.message : "bilinmiyor"}`);
     } finally {
@@ -236,7 +238,7 @@ export default function SimulatorPage() {
       </div>
 
       {states.length > 0 && (
-        <div className="mt-6">
+        <div className="mt-6 flex items-center gap-3">
           <button
             onClick={() => loadState(true)}
             disabled={refreshing}
@@ -244,6 +246,11 @@ export default function SimulatorPage() {
           >
             {refreshing ? "Yükleniyor…" : "↻ Yenile"}
           </button>
+          {lastRefreshed && (
+            <span className="text-xs text-zinc-400">
+              Son yenileme: {lastRefreshed}
+            </span>
+          )}
         </div>
       )}
     </div>
