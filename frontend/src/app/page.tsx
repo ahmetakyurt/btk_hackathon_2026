@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { MobileNav } from "@/components/mobile-nav";
 
 export default async function HomePage() {
   const session = await auth();
@@ -27,7 +28,7 @@ export default async function HomePage() {
               Fiyatlandırma
             </Link>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <Link
               href="/auth/login"
               className="text-sm font-medium text-foreground hover:text-muted-foreground transition-colors"
@@ -41,6 +42,7 @@ export default async function HomePage() {
               Hemen Başla
             </Link>
           </div>
+          <MobileNav />
         </div>
       </nav>
 
