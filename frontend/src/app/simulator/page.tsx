@@ -158,7 +158,7 @@ export default function SimulatorPage() {
   const loadState = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     try {
-      const r = await fetch("/api/proxy/api/simulator/state");
+      const r = await fetch("/api/proxy/api/simulator/state", { cache: "no-store" });
       if (!r.ok) throw new Error(`${r.status}`);
       const data = (await r.json()) as PlatformSimState[];
       setStates(data);
