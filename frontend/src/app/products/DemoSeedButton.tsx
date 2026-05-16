@@ -21,7 +21,7 @@ export function DemoSeedButton() {
       }
       const data = await res.json();
       setResult(
-        `${data.products_created} urun eklendi, ${data.products_skipped} mevcut atlandi.`
+        `${data.products_created} ürün eklendi, ${data.products_skipped} mevcut atlandı.`
       );
       router.refresh();
     } catch (e) {
@@ -38,7 +38,7 @@ export function DemoSeedButton() {
         disabled={loading}
         className="rounded-md border border-zinc-300 dark:border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
       >
-        {loading ? "Yukleniyor..." : "Demo verisini yukle"}
+        {loading ? "Yükleniyor..." : "Demo verisini yükle"}
       </button>
       {result && (
         <p className="text-xs text-green-600 dark:text-green-400">{result}</p>

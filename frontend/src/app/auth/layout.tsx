@@ -15,7 +15,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             {children}
           </div>
           <p className="mt-6 text-center text-xs text-muted-foreground">
-            OptiPrice AI — Cok kanallik dinamik fiyatlandirma
+            OptiPrice AI — Çok kanallı dinamik fiyatlandırma
           </p>
         </div>
       </div>

@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import UTC, datetime
+import random
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -18,7 +19,7 @@ from app.agents.listing_agent import ListingAgent
 from app.api.products import _list_on_platform, _make_integration, compute_floor_price
 from app.config import get_settings
 from app.core.deps import get_current_user_id
-from app.db.models import Platform, PlatformConnection, Product
+from app.db.models import Platform, PlatformConnection, PricingAgentLog, Product, ProductPlatformStatus
 from app.db.session import get_session
 
 logger = logging.getLogger(__name__)
@@ -28,37 +29,38 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 UserIdDep = Annotated[int, Depends(get_current_user_id)]
 
 # ─── Demo data ─────────────────────────────────────────────────────────────────
+# base_sku is suffixed with user_id at runtime to keep the global UNIQUE constraint satisfied.
 
 PRODUCTS: list[dict[str, Any]] = [
     {
-        "sku": "SONY-WH1000XM5",
-        "title": "Sony WH-1000XM5 Kablosuz Gurultu Engelleyici Kulaklik",
+        "base_sku": "SONY-WH1000XM5",
+        "title": "Sony WH-1000XM5 Kablosuz Gürültü Engelleyici Kulaklık",
         "base_cost": 2800.00,
         "shipping_cost": 35.00,
         "stock": 50,
-        "category": "Elektronik / Kulaklik",
+        "category": "Elektronik / Kulaklık",
         "initial_price": 4299.00,
         "raw_specs": {
-            "marka": "Sony", "model": "WH-1000XM5", "baglanti": "Bluetooth 5.2",
-            "pil_omru": "30 saat", "anc": "Evet", "renk": "Siyah",
+            "marka": "Sony", "model": "WH-1000XM5", "bağlantı": "Bluetooth 5.2",
+            "pil_ömrü": "30 saat", "anc": "Evet", "renk": "Siyah",
         },
     },
     {
-        "sku": "PHILIPS-AF9252",
-        "title": "Philips Essential Airfryer XXL 6.2L Yagsiz Fritoz",
+        "base_sku": "PHILIPS-AF9252",
+        "title": "Philips Essential Airfryer XXL 6.2L Yağsız Fritöz",
         "base_cost": 1450.00,
         "shipping_cost": 50.00,
         "stock": 30,
-        "category": "Ev & Yasam / Mutfak Aletleri",
+        "category": "Ev & Yaşam / Mutfak Aletleri",
         "initial_price": 2249.00,
         "raw_specs": {
             "marka": "Philips", "model": "HD9252/91", "kapasite": "6.2 litre",
-            "guc": "2000W", "kontrol": "Dijital", "renk": "Siyah",
+            "güç": "2000W", "kontrol": "Dijital", "renk": "Siyah",
         },
     },
     {
-        "sku": "XIAOMI-MIBAND9",
-        "title": "Xiaomi Mi Band 9 Akilli Bileklik - AMOLED Ekran",
+        "base_sku": "XIAOMI-MIBAND9",
+        "title": "Xiaomi Mi Band 9 Akıllı Bileklik - AMOLED Ekran",
         "base_cost": 450.00,
         "shipping_cost": 15.00,
         "stock": 120,
@@ -66,37 +68,194 @@ PRODUCTS: list[dict[str, Any]] = [
         "initial_price": 849.00,
         "raw_specs": {
             "marka": "Xiaomi", "model": "Mi Band 9", "ekran": '1.62" AMOLED',
-            "su_gecirmezlik": "5 ATM", "pil_omru": "21 gun",
-            "sensorler": "Nabiz, SpO2, Uyku",
+            "su_geçirmezlik": "5 ATM", "pil_ömrü": "21 gün",
+            "sensörler": "Nabız, SpO2, Uyku",
         },
     },
     {
-        "sku": "TEFAL-KO8501",
-        "title": "Tefal Smart'n Light Elektrikli Su Isitici 1.7L",
+        "base_sku": "TEFAL-KO8501",
+        "title": "Tefal Smart'n Light Elektrikli Su Isıtıcı 1.7L",
         "base_cost": 320.00,
         "shipping_cost": 20.00,
         "stock": 80,
-        "category": "Ev & Yasam / Kucuk Ev Aletleri",
+        "category": "Ev & Yaşam / Küçük Ev Aletleri",
         "initial_price": 599.00,
         "raw_specs": {
             "marka": "Tefal", "model": "KO850130", "kapasite": "1.7 litre",
-            "guc": "2400W", "malzeme": "Cam", "garanti": "2 yil",
+            "güç": "2400W", "malzeme": "Cam", "garanti": "2 yıl",
         },
     },
     {
-        "sku": "LOGITECH-MX3S",
+        "base_sku": "LOGITECH-MX3S",
         "title": "Logitech MX Master 3S Kablosuz Performans Mouse",
         "base_cost": 950.00,
         "shipping_cost": 20.00,
         "stock": 60,
-        "category": "Bilgisayar / Cevre Birimleri",
+        "category": "Bilgisayar / Çevre Birimleri",
         "initial_price": 1699.00,
         "raw_specs": {
-            "marka": "Logitech", "model": "MX Master 3S", "baglanti": "Bluetooth / USB-C",
-            "dpi": "200-8000", "pil": "Sarj edilebilir", "uyumluluk": "Windows, macOS, Linux",
+            "marka": "Logitech", "model": "MX Master 3S", "bağlantı": "Bluetooth / USB-C",
+            "dpi": "200-8000", "pil": "Şarj edilebilir", "uyumluluk": "Windows, macOS, Linux",
+        },
+    },
+    {
+        "base_sku": "SAMSUNG-A55",
+        "title": "Samsung Galaxy A55 5G 256GB Akıllı Telefon",
+        "base_cost": 8500.00,
+        "shipping_cost": 45.00,
+        "stock": 8,
+        "category": "Elektronik / Cep Telefonu",
+        "initial_price": 12999.00,
+        "raw_specs": {
+            "marka": "Samsung", "model": "Galaxy A55 5G", "depolama": "256GB",
+            "ram": "8GB", "ekran": '6.6" Super AMOLED', "renk": "Sarı",
+        },
+    },
+    {
+        "base_sku": "DYSON-V15",
+        "title": "Dyson V15 Detect Telsiz Elektrikli Süpürge",
+        "base_cost": 12000.00,
+        "shipping_cost": 0.00,
+        "stock": 0,
+        "category": "Ev & Yaşam / Elektrikli Süpürge",
+        "initial_price": 18999.00,
+        "raw_specs": {
+            "marka": "Dyson", "model": "V15 Detect", "güç": "240 AW",
+            "pil_ömrü": "60 dakika", "filtre": "HEPA", "renk": "Sarı/Nikel",
+        },
+    },
+    {
+        "base_sku": "LEGO-42151",
+        "title": "LEGO Technic Bugatti Bolide 42151 Model Yapım Seti",
+        "base_cost": 1200.00,
+        "shipping_cost": 25.00,
+        "stock": 25,
+        "category": "Oyuncak / LEGO",
+        "initial_price": 2199.00,
+        "raw_specs": {
+            "marka": "LEGO", "model": "Technic 42151", "parça_sayısı": "905",
+            "yaş": "10+", "boyut": "14 x 8 x 4 cm", "renk": "Mavi/Kırmızı",
+        },
+    },
+    {
+        "base_sku": "NIKE-AIRMAX270",
+        "title": "Nike Air Max 270 Erkek Spor Ayakkabı",
+        "base_cost": 1800.00,
+        "shipping_cost": 30.00,
+        "stock": 3,
+        "category": "Moda / Spor Ayakkabı",
+        "initial_price": 3499.00,
+        "raw_specs": {
+            "marka": "Nike", "model": "Air Max 270", "taban": "Max Air",
+            "ağırlık": "298g", "malzeme": "Mesh + Deri", "renk": "Siyah/Beyaz",
+        },
+    },
+    {
+        "base_sku": "NESCAFE-DOLCEGUSTO",
+        "title": "Nescafé Dolce Gusto Genio S Plus Kahve Makinesi",
+        "base_cost": 650.00,
+        "shipping_cost": 30.00,
+        "stock": 45,
+        "category": "Ev & Yaşam / Kahve Makinesi",
+        "initial_price": 1299.00,
+        "raw_specs": {
+            "marka": "Nescafé", "model": "Genio S Plus", "basınç": "15 bar",
+            "kapasite": "0.8 litre", "ısıtma_süresi": "30 saniye", "renk": "Beyaz",
         },
     },
 ]
+
+# ─── Mock log scenarios ─────────────────────────────────────────────────────────
+
+_MOCK_SCENARIOS = [
+    {
+        "trigger_event": "competitor_price_change",
+        "decision": "price_updated",
+        "reasoning": "Rakip fiyatını düşürdü. Buybox'ı korumak için rakibin 0.50 TL altına indim. Kâr marjı hâlâ pozitif.",
+        "confidence_score": 91.5,
+        "has_buybox": True,
+    },
+    {
+        "trigger_event": "competitor_price_change",
+        "decision": "floor_hit",
+        "reasoning": "Hedef fiyat floor fiyatının altına düşüyordu. Zarar etmemek için floor fiyatında bıraktım.",
+        "confidence_score": 78.2,
+        "has_buybox": False,
+    },
+    {
+        "trigger_event": "scheduled",
+        "decision": "price_updated",
+        "reasoning": "Rakip fiyat medyanının altındaydım. Logistics balance stratejisi gereği medyana yaklaştım.",
+        "confidence_score": 88.0,
+        "has_buybox": True,
+    },
+    {
+        "trigger_event": "scheduled",
+        "decision": "no_action",
+        "reasoning": "Mevcut fiyat rekabetçi konumda ve buybox bende. Fiyat değişikliğine gerek yok.",
+        "confidence_score": 95.3,
+        "has_buybox": True,
+    },
+    {
+        "trigger_event": "low_stock",
+        "decision": "price_updated",
+        "reasoning": "Düşük stok tespit edildi. Kâr maksimizasyon stratejisine geçildi, fiyat artırıldı.",
+        "confidence_score": 83.7,
+        "has_buybox": False,
+    },
+    {
+        "trigger_event": "competitor_price_change",
+        "decision": "price_updated",
+        "reasoning": "Buybox bizde ve rakip 2. sıradan 0.50 TL daha yükseğe çıktı. Parayı masada bırakmamak için fiyatı %5 kademeli artırdım.",
+        "confidence_score": 89.1,
+        "has_buybox": True,
+    },
+]
+
+
+def _make_mock_logs(
+    status: ProductPlatformStatus,
+    log_count: int = 3,
+) -> list[PricingAgentLog]:
+    logs = []
+    price = status.current_price or Decimal("100")
+    floor = status.floor_price or Decimal("50")
+    for i in range(log_count):
+        scenario = _MOCK_SCENARIOS[(status.id + i) % len(_MOCK_SCENARIOS)]
+        delta = Decimal(str(round(random.uniform(-30, 30), 2)))
+        new_price = max(floor, price + delta) if scenario["decision"] == "price_updated" else price
+        created_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=(log_count - i) * 8)
+        logs.append(
+            PricingAgentLog(
+                product_platform_id=status.id,
+                agent_name="PricingAgent",
+                trigger_event=scenario["trigger_event"],
+                input_snapshot={
+                    "current_price": float(price),
+                    "competitor_price": float(price - Decimal("0.50")),
+                    "floor_price": float(floor),
+                },
+                reasoning=scenario["reasoning"],
+                tool_calls={
+                    "calls": [
+                        "get_competitor_prices",
+                        "calculate_floor_price",
+                        "update_platform_price",
+                        "log_decision",
+                    ]
+                },
+                old_price=price,
+                new_price=new_price,
+                decision=scenario["decision"],
+                duration_ms=random.randint(18000, 21000),
+                confidence_score=scenario["confidence_score"],
+                is_pending_approval=False,
+                created_at=created_at,
+            )
+        )
+        if scenario["decision"] == "price_updated":
+            price = new_price
+    return logs
 
 PLATFORM_CONNECTIONS: list[dict[str, str | None]] = [
     {"platform_code": "trendyol", "seller_id": "DEMO-12345678", "api_key": "demo-trendyol-api-key"},
@@ -215,8 +374,9 @@ async def seed_demo_data(
 
     # 3. Seed products
     for p_data in PRODUCTS:
-        sku = p_data["sku"]
-        # Check SKU existence
+        # Prefix SKU with user_id so multiple users can run the seed independently.
+        # Product.sku has a global UNIQUE constraint — user-scoped prefix keeps it unique.
+        sku = f"DEMO{user_id}-{p_data['base_sku']}"
         existing_prod = await session.scalar(select(Product).where(Product.sku == sku))
         if existing_prod is not None:
             products_skipped += 1
@@ -289,6 +449,31 @@ async def seed_demo_data(
         except IntegrityError:
             await session.rollback()
             products_skipped += 1
+            continue
+
+        # Reload status rows to get their DB-assigned ids, then insert mock logs.
+        fresh_statuses = (
+            await session.execute(
+                select(ProductPlatformStatus).where(
+                    ProductPlatformStatus.product_id == product.id
+                )
+            )
+        ).scalars().all()
+
+        for status in fresh_statuses:
+            mock_logs = _make_mock_logs(status, log_count=3)
+            for log in mock_logs:
+                session.add(log)
+
+        # Update half the statuses to have buybox so dashboard metrics look realistic.
+        for i, status in enumerate(fresh_statuses):
+            status.has_buybox = i % 2 == 0
+            status.competitor_price = (status.current_price or Decimal("0")) + Decimal(
+                str(round(random.uniform(1, 50), 2))
+            )
+            session.add(status)
+
+        await session.commit()
 
     return DemoSeedResult(
         connections_created=connections_created,
