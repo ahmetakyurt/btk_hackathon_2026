@@ -45,7 +45,7 @@ export function TriggerButton({ productPlatformId }: { productPlatformId: number
         disabled={loading}
         className="w-full rounded-md border border-zinc-200 dark:border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 transition-colors"
       >
-        {loading ? "Ajan çalışıyor…" : "Manuel Fiyatlandır"}
+        {loading ? "Ajan çalışıyor…" : "Tekrar Fiyatlandır"}
       </button>
       {result && (
         <p className="text-xs text-center text-zinc-500">{result}</p>
