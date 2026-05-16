@@ -38,14 +38,26 @@ async def _ensure_product_in_mock(
     base_url: str,
     client: httpx.AsyncClient,
 ) -> str | None:
-    """Re-create a product in a mock service. Returns the new external_id or None."""
+    """Re-create a product in a mock service. Returns the new external_id or None.
+
+    Uses ceiling_price/2 (≈ original listing price) instead of current_price to prevent
+    cascading price degradation: after each mock restart the price would otherwise be
+    re-seeded at whatever degraded value the agent last wrote, creating a downward spiral.
+    """
     product = pps.product
+    # ceiling_price = initial_price × 2, so ceiling/2 ≈ original listing price.
+    relist_price = (
+        float(pps.ceiling_price) / 2.0
+        if pps.ceiling_price
+        else float(pps.current_price) if pps.current_price
+        else 100.0
+    )
     payload: dict[str, Any] = {
         "sku": product.sku,
         "title": pps.ai_generated_title or product.title,
         "description": pps.ai_generated_desc or "",
         "category": product.category or "",
-        "price": float(pps.current_price) if pps.current_price else 0.0,
+        "price": relist_price,
         "stock": product.stock,
         "keywords": [],
         "raw_specs": {str(k): str(v) for k, v in (product.raw_specs or {}).items()},
@@ -128,15 +140,19 @@ async def get_simulator_state(session: SessionDep, user_id: UserIdDep) -> list[P
                     new_external_id = await _ensure_product_in_mock(pps, base_url, client)
                     if new_external_id:
                         pps.external_id = new_external_id
-                        session.add(pps)
-                        await session.commit()
-                        # Fetch competitors for newly created product
+                        # Fetch competitors first to get the actual price the mock assigned
                         r2 = await client.get(f"{base_url}/products/{new_external_id}/competitors")
                         r2.raise_for_status()
                         data2 = r2.json()
                         own_price = float(data2["own_price"])
                         own_has_buybox = data2["own_has_buybox"]
                         competitors = [CompetitorInfo(**c) for c in data2["competitors"]]
+                        # Sync current_price in DB to match the freshly listed price,
+                        # so the next agent run starts from the correct baseline.
+                        from decimal import Decimal as _D
+                        pps.current_price = _D(str(own_price))
+                        session.add(pps)
+                        await session.commit()
                     # If re-creation failed, fall through to add with fallback values
                 else:
                     r.raise_for_status()

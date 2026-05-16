@@ -1,6 +1,6 @@
 import { apiServer, type Product } from "@/lib/api";
 import Link from "next/link";
-import { DemoSeedButton } from "./DemoSeedButton";
+import { DemoSeedButton, ResetPricesButton } from "./DemoSeedButton";
 
 async function getProducts(): Promise<{ data: Product[]; error: string | null }> {
   try {
@@ -22,14 +22,17 @@ export default async function ProductsPage() {
 
   return (
     <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Ürünler</h1>
-        <Link
-          href="/products/new"
-          className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
-        >
-          + Yeni Ürün
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <ResetPricesButton />
+          <Link
+            href="/products/new"
+            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200 transition-colors"
+          >
+            + Yeni Ürün
+          </Link>
+        </div>
       </div>
 
       {error && (

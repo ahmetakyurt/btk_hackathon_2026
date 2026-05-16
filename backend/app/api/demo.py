@@ -482,3 +482,38 @@ async def seed_demo_data(
         products_skipped=products_skipped,
         errors=errors,
     )
+
+
+class ResetPricesResult(BaseModel):
+    reset_count: int
+
+
+@router.post("/reset-prices", response_model=ResetPricesResult)
+async def reset_demo_prices(
+    session: SessionDep,
+    user_id: UserIdDep,
+) -> ResetPricesResult:
+    """Reset all product_platform_status prices to ceiling/2 (≈ original listing price).
+
+    Use this after mock service restarts have caused cascading price degradation.
+    """
+    from sqlalchemy.orm import selectinload as _sl
+
+    rows = (
+        await session.execute(
+            select(ProductPlatformStatus)
+            .join(ProductPlatformStatus.product)
+            .where(Product.user_id == user_id)
+            .options(_sl(ProductPlatformStatus.product))
+        )
+    ).scalars().all()
+
+    count = 0
+    for pps in rows:
+        if pps.ceiling_price:
+            pps.current_price = (pps.ceiling_price / Decimal("2")).quantize(Decimal("0.01"))
+            session.add(pps)
+            count += 1
+
+    await session.commit()
+    return ResetPricesResult(reset_count=count)

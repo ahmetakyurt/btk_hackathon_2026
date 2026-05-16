@@ -171,7 +171,13 @@ def _apply_strategy(
     """Compute target price from strategy + competitors. Always clamped to [floor, ceiling]."""
     if not competitors:
         if strategy == PricingStrategy.PROFIT_MAX:
-            return ceiling_price  # no competitors → maximize profit at ceiling
+            if own_has_buybox:
+                # Buybox bizdeyse kademeli artır — ceiling'e fırlatma.
+                # own_site her zaman buraya düşer (rakip yok, buybox=True).
+                raise_target = (current_price * _PROFIT_MAX_RAISE_STEP).quantize(Decimal("0.01"))
+                return min(raise_target, ceiling_price)
+            # Rakip yok + buybox bizde değil → fiyatı koru (yeterli bilgi yok).
+            return current_price
         return current_price  # rakip yoksa mevcut fiyatı koru
 
     prices = sorted([Decimal(str(c["price"])) for c in competitors])
@@ -291,8 +297,9 @@ _STRATEGY_HINTS: dict[PricingStrategy, str] = {
     ),
     PricingStrategy.PROFIT_MAX: (
         "KÂR MAKSİMİZASYONU:\n"
-        "- Rakip YOKSA: tavan fiyatta kal\n"
-        "- Buybox SENDE İSE: fiyatı %5 kademeli YÜKSELT (tavanı aşma)\n"
+        "- Rakip YOKSA ve buybox sende: fiyatı %5 kademeli YÜKSELT (tavanı aşma) — tavan fiyata ZIPLAMA\n"
+        "- Rakip YOKSA ve buybox sende değil: mevcut fiyatı koru (bilgi yetersiz)\n"
+        "- Buybox SENDE İSE ve rakip varsa: fiyatı %5 kademeli YÜKSELT (tavanı aşma)\n"
         "- Buybox KAYBETTİYSEN: referans rakibin %5 altına in"
     ),
 }
