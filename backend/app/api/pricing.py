@@ -156,8 +156,7 @@ async def trigger_pricing(
         pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
     pps.last_confidence_score = result.confidence_score
-    if result.requires_approval:
-        pps.requires_approval = True
+    pps.requires_approval = result.requires_approval
 
     await session.commit()
     await session.refresh(log)

@@ -24,6 +24,7 @@ _MIN_PRICE_DELTA = Decimal("0.50")            # ignore changes smaller than this
 _PROFIT_MAX_RATIO = Decimal("0.95")           # own_site: 5% below competitor
 _OUTLIER_GAP_RATIO = Decimal("0.20")          # cheapest >20% below 2nd → treat as outlier
 _PROFIT_MAX_RAISE_STEP = Decimal("1.05")      # max 5% raise per step when holding buybox
+_ADAPTIVE_CEILING_MULT = Decimal("1.20")      # market reference × this → effective ceiling floor
 _MAX_GEMINI_TURNS = 6
 _GEMINI_TOTAL_TIMEOUT = 40.0                  # hard cap across all turns
 _CONFIDENCE_THRESHOLD = 75.0                  # below this → requires human approval
@@ -163,6 +164,25 @@ def _find_smart_reference(prices: list[Decimal]) -> Decimal:
     return prices[0]
 
 
+def _effective_ceiling(stored_ceiling: Decimal, competitors: list[dict[str, Any]]) -> Decimal:
+    """Adaptive ceiling — expand stored ceiling if market median moved above it.
+
+    Uses median (robust to single high outlier). The ceiling can only grow, never shrink
+    below the stored value. Lets the agent follow the market when prices climb after listing.
+    """
+    if not competitors:
+        return stored_ceiling
+    prices = sorted(Decimal(str(c["price"])) for c in competitors)
+    n = len(prices)
+    median_price = (
+        (prices[n // 2 - 1] + prices[n // 2]) / Decimal("2")
+        if n % 2 == 0
+        else prices[n // 2]
+    )
+    market_cap = (median_price * _ADAPTIVE_CEILING_MULT).quantize(Decimal("0.01"))
+    return max(stored_ceiling, market_cap)
+
+
 def _apply_strategy(
     strategy: PricingStrategy,
     current_price: Decimal,
@@ -171,7 +191,7 @@ def _apply_strategy(
     competitors: list[dict[str, Any]],
     own_has_buybox: bool = False,
 ) -> Decimal:
-    """Compute target price from strategy + competitors. Always clamped to [floor, ceiling]."""
+    """Compute target price from strategy + competitors. Always clamped to [floor, effective_ceiling]."""
     if not competitors:
         if strategy == PricingStrategy.PROFIT_MAX:
             if own_has_buybox:
@@ -182,6 +202,8 @@ def _apply_strategy(
             # Rakip yok + buybox bizde değil → fiyatı koru (yeterli bilgi yok).
             return current_price
         return current_price  # rakip yoksa mevcut fiyatı koru
+
+    effective_ceiling = _effective_ceiling(ceiling_price, competitors)
 
     prices = sorted([Decimal(str(c["price"])) for c in competitors])
     min_price = prices[0]
@@ -202,9 +224,9 @@ def _apply_strategy(
     elif strategy == PricingStrategy.LOGISTICS_BALANCE:
         target = _logistics_target(current_price, sorted(prices), median_price, buybox_winner_price, own_has_buybox, floor_price)
     else:  # PROFIT_MAX
-        target = _profitmax_target(current_price, ceiling_price, sorted(prices), buybox_winner_price, own_has_buybox)
+        target = _profitmax_target(current_price, effective_ceiling, sorted(prices), buybox_winner_price, own_has_buybox)
 
-    return max(floor_price, min(ceiling_price, target)).quantize(
+    return max(floor_price, min(effective_ceiling, target)).quantize(
         Decimal("0.01"), rounding=ROUND_HALF_UP
     )
 
@@ -647,10 +669,22 @@ class PricingAgent:
         if delta < _MIN_PRICE_DELTA:
             decision = PricingDecision.NO_ACTION
             new_price = ctx.current_price
-            reasoning = (
-                f"Strateji {ctx.strategy.value}: hedef {target} TL, "
-                f"delta {delta:.2f} TL eşiğin ({_MIN_PRICE_DELTA} TL) altında."
+            effective_ceiling = _effective_ceiling(ctx.ceiling_price, competitors)
+            stuck_at_ceiling = (
+                competitors
+                and target >= effective_ceiling - _MIN_PRICE_DELTA
+                and any(Decimal(str(c["price"])) > effective_ceiling for c in competitors)
             )
+            if stuck_at_ceiling:
+                reasoning = (
+                    f"Tavan fiyata ({effective_ceiling} TL) ulaşıldı — rakipler daha "
+                    f"yüksekte ama tavanı aşamayız. Mevcut fiyat korunuyor."
+                )
+            else:
+                reasoning = (
+                    f"Strateji {ctx.strategy.value}: hedef {target} TL, "
+                    f"delta {delta:.2f} TL eşiğin ({_MIN_PRICE_DELTA} TL) altında."
+                )
         else:
             update_result = await _tool_update_platform_price(
                 integration, ctx.external_id, float(target), f"strategy:{ctx.strategy.value}"

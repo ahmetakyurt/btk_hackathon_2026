@@ -16,6 +16,7 @@ from app.agents.pricing_agent import (
     PricingStrategy,
     _apply_strategy,
     _buybox_target,
+    _effective_ceiling,
     _find_smart_reference,
     _tool_calculate_floor_price,
 )
@@ -188,6 +189,42 @@ class TestApplyStrategy:
             competitors=[],
         )
         assert result == Decimal("200.00")
+
+
+class TestEffectiveCeiling:
+    def test_no_competitors_returns_stored(self) -> None:
+        assert _effective_ceiling(Decimal("200"), []) == Decimal("200")
+
+    def test_market_above_expands_ceiling(self) -> None:
+        # Median = 400, market_cap = 480 > stored 200 → expand
+        result = _effective_ceiling(Decimal("200"), [{"price": 400.0}])
+        assert result == Decimal("480.00")
+
+    def test_market_below_keeps_stored(self) -> None:
+        # Median = 100, market_cap = 120 < stored 200 → keep stored
+        result = _effective_ceiling(Decimal("200"), [{"price": 100.0}, {"price": 105.0}])
+        assert result == Decimal("200")
+
+    def test_single_high_outlier_does_not_inflate(self) -> None:
+        # Median of [100, 105, 10000] = 105, market_cap = 126 < stored 200 → no inflation
+        result = _effective_ceiling(
+            Decimal("200"),
+            [{"price": 100.0}, {"price": 105.0}, {"price": 10000.0}],
+        )
+        assert result == Decimal("200")
+
+    def test_buybox_target_follows_high_market(self) -> None:
+        # Real-world scenario from screenshot: stored ceiling well below competitor
+        # competitor at 4059, buybox ours → raise to 4058.50 (within adaptive ceiling 4870.80)
+        result = _apply_strategy(
+            PricingStrategy.BUYBOX,
+            current_price=Decimal("1213"),
+            floor_price=Decimal("466"),
+            ceiling_price=Decimal("1213"),
+            competitors=[{"price": 4059.0}],
+            own_has_buybox=True,
+        )
+        assert result == Decimal("4058.50")
 
 
 class TestFindSmartReference:
