@@ -99,8 +99,8 @@ class TestApplyStrategy:
         )
         assert result == Decimal("254.50")  # raise toward cheapest competitor - 0.50
 
-    def test_buybox_stays_put_when_already_optimal(self) -> None:
-        # We have buybox at 260, 2nd cheapest is 255 → 255-0.50=254.50 < 260, stay at 260
+    def test_buybox_drops_when_competitor_beats_us(self) -> None:
+        # own_has_buybox=True but competitor at 250 is below our 260 → stale flag → undercut to 249.50
         result = _apply_strategy(
             PricingStrategy.BUYBOX,
             current_price=Decimal("260"),
@@ -109,7 +109,7 @@ class TestApplyStrategy:
             competitors=[{"price": 250.0}, {"price": 255.0}],
             own_has_buybox=True,
         )
-        assert result == Decimal("260.00")  # don't drop when already winning
+        assert result == Decimal("249.50")  # competitor beat us — drop to win back buybox
 
     def test_buybox_ignores_outlier(self) -> None:
         # Cheapest at 100 is outlier (>20% below 2nd at 149)
@@ -146,7 +146,8 @@ class TestApplyStrategy:
         )
         assert result == Decimal("95.00")
 
-    def test_profit_max_uses_ceiling_when_no_competitors(self) -> None:
+    def test_profit_max_keeps_current_when_no_competitors(self) -> None:
+        # No competitors + no buybox → insufficient info to raise, keep current price
         result = _apply_strategy(
             PricingStrategy.PROFIT_MAX,
             current_price=Decimal("100"),
@@ -154,7 +155,7 @@ class TestApplyStrategy:
             ceiling_price=Decimal("200"),
             competitors=[],
         )
-        assert result == Decimal("200.00")
+        assert result == Decimal("100")
 
     def test_profit_max_undercuts_by_5pct(self) -> None:
         result = _apply_strategy(
@@ -256,28 +257,29 @@ class TestPricingAgentDeterministic:
         integration.update_price.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_profit_max_no_competitors_goes_to_ceiling(self) -> None:
+    async def test_profit_max_no_competitors_keeps_current(self) -> None:
+        # No competitors + no buybox → insufficient info, keep current price
         agent = PricingAgent(api_key="")
         ctx = _ctx(
             strategy=PricingStrategy.PROFIT_MAX,
             current_price=Decimal("200"),
             ceiling_price=Decimal("400"),
         )
-        integration = _mock_integration([])  # no competitors → ceiling
+        integration = _mock_integration([])
         result = await agent.run(ctx, integration)
-        assert result.decision == PricingDecision.PRICE_UPDATED
-        assert result.new_price == Decimal("400.00")
+        assert result.decision == PricingDecision.NO_ACTION
+        assert result.new_price == Decimal("200.00")
 
     @pytest.mark.asyncio
     async def test_logistics_balance_tracks_median(self) -> None:
         agent = PricingAgent(api_key="")
         ctx = _ctx(
             strategy=PricingStrategy.LOGISTICS_BALANCE,
-            current_price=Decimal("300"),
+            current_price=Decimal("270"),
             floor_price=Decimal("150"),
             ceiling_price=Decimal("500"),
         )
-        integration = _mock_integration([240.0, 260.0])  # median = 250
+        integration = _mock_integration([240.0, 260.0])  # median = 250, drop 7.4% → confidence OK
         result = await agent.run(ctx, integration)
         assert result.decision == PricingDecision.PRICE_UPDATED
         assert result.new_price == Decimal("250.00")

@@ -286,6 +286,8 @@ async def ty_update_price(external_id: str, body: TyUpdatePriceRequest, session:
 @ty_router.get("/products/{external_id}/competitors", response_model=TyCompetitorsResponse)
 async def ty_get_competitors(external_id: str, session: AsyncSession = Depends(get_ty_session)) -> TyCompetitorsResponse:
     listing = await _ty_get_or_404(session, external_id)
+    await _ty_recompute_buybox(session, listing)
+    await session.commit()
     return TyCompetitorsResponse(external_id=listing.external_id, fetched_at=datetime.now(UTC),
                                  own_price=listing.price, own_has_buybox=listing.has_buybox,
                                  competitors=[TyCompetitorEntry(seller_name=c.seller_name, price=c.price, has_buybox=c.has_buybox)
@@ -431,6 +433,8 @@ async def az_update_price(external_id: str, body: AzUpdatePriceRequest, session:
 @az_router.get("/products/{external_id}/competitors", response_model=AzCompetitorsResponse)
 async def az_get_competitors(external_id: str, session: AsyncSession = Depends(get_az_session)) -> AzCompetitorsResponse:
     listing = await _az_get_or_404(session, external_id)
+    await _az_recompute_buybox(session, listing)
+    await session.commit()
     return AzCompetitorsResponse(external_id=listing.external_id, fetched_at=datetime.now(UTC),
                                  own_price=listing.price, own_has_buybox=listing.has_buybox,
                                  competitors=[AzCompetitorEntry(seller_name=c.seller_name, price=c.price, has_buybox=c.has_buybox)

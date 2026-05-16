@@ -217,11 +217,14 @@ def _buybox_target(
 ) -> Decimal:
     """Win buybox without leaving money on the table."""
     if own_has_buybox and sorted_prices:
-        # We hold buybox — raise toward cheapest competitor (don't leave money)
+        # We hold buybox — try to raise toward cheapest competitor (don't leave money)
         target = sorted_prices[0] - _BUYBOX_UNDERCUT
-        return max(target, current)  # never drop when already winning
+        if target >= current:
+            return target  # raise price, we're cheaper than we need to be
+        # target < current means a competitor is actually beating us despite the buybox flag
+        # (stale signal) — fall through to undercut logic below
 
-    # We don't have buybox — undercut the buybox winner
+    # We don't have buybox (or lost it despite stale flag) — undercut the buybox winner
     ref = _find_smart_reference(sorted_prices)
     return ref - _BUYBOX_UNDERCUT
 
@@ -615,9 +618,15 @@ class PricingAgent:
         own_has_buybox = comp_result.get("own_has_buybox", False)
         target = _apply_strategy(ctx.strategy, ctx.current_price, floor_price, ctx.ceiling_price, competitors, own_has_buybox)
 
-        # 4. Confidence check — before deciding to act
+        # 4. Decide + Confidence check
+        # hit_floor: only meaningful when we were pushed down TO the floor from above it.
+        # Does not fire when current_price is already at/below floor (those edge cases stay NO_ACTION).
+        hit_floor = target <= floor_price and floor_price < ctx.current_price
+        delta = abs(target - ctx.current_price)
         confidence_score = _compute_confidence(ctx.current_price, target, floor_price, ctx.ceiling_price)
-        if confidence_score < _CONFIDENCE_THRESHOLD:
+        # Only run confidence gate when there's an actual price change and it's not a forced floor hit.
+        # (floor hits are already at the minimum safe margin — no approval needed)
+        if delta >= _MIN_PRICE_DELTA and not hit_floor and confidence_score < _CONFIDENCE_THRESHOLD:
             return PricingResult(
                 decision=PricingDecision.PENDING_APPROVAL,
                 old_price=ctx.current_price,
@@ -634,10 +643,6 @@ class PricingAgent:
             )
 
         # 5. Decide
-        delta = abs(target - ctx.current_price)
-        # hit_floor: only meaningful when we were pushed down TO the floor from above it.
-        # Does not fire when current_price is already at/below floor (those edge cases stay NO_ACTION).
-        hit_floor = target <= floor_price and floor_price < ctx.current_price
 
         if delta < _MIN_PRICE_DELTA:
             decision = PricingDecision.NO_ACTION
