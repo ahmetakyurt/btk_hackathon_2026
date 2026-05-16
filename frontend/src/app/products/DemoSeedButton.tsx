@@ -67,7 +67,8 @@ export function ResetPricesButton() {
         throw new Error(text);
       }
       const data = await res.json();
-      setResult(`${data.reset_count} ürün fiyatı sıfırlandı.`);
+      const failNote = data.push_failures > 0 ? ` (${data.push_failures} platform push başarısız)` : "";
+      setResult(`${data.reset_count} ürün fiyatı sıfırlandı.${failNote}`);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bilinmeyen hata");

@@ -21,6 +21,7 @@ from app.config import get_settings
 from app.core.deps import get_current_user_id
 from app.db.models import Platform, PlatformConnection, PricingAgentLog, Product, ProductPlatformStatus
 from app.db.session import get_session
+from app.integrations.base import IntegrationError
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/demo", tags=["demo"])
@@ -489,6 +490,7 @@ async def seed_demo_data(
 
 class ResetPricesResult(BaseModel):
     reset_count: int
+    push_failures: int
 
 
 @router.post("/reset-prices", response_model=ResetPricesResult)
@@ -496,9 +498,11 @@ async def reset_demo_prices(
     session: SessionDep,
     user_id: UserIdDep,
 ) -> ResetPricesResult:
-    """Reset all product_platform_status prices to ceiling/2 (≈ original listing price).
+    """Reset all product_platform_status prices to ceiling/2 and push to mock services.
 
     Use this after mock service restarts have caused cascading price degradation.
+    Both the backend DB and the mock platform are synced so the next agent run
+    starts from a clean baseline.
     """
     from sqlalchemy.orm import selectinload as _sl
 
@@ -506,17 +510,33 @@ async def reset_demo_prices(
         await session.execute(
             select(ProductPlatformStatus)
             .join(ProductPlatformStatus.product)
-            .where(Product.user_id == user_id)
-            .options(_sl(ProductPlatformStatus.product))
+            .where(
+                Product.user_id == user_id,
+                ProductPlatformStatus.status == "listed",
+                ProductPlatformStatus.external_id.is_not(None),
+                ProductPlatformStatus.ceiling_price.is_not(None),
+            )
+            .options(_sl(ProductPlatformStatus.platform))
         )
     ).scalars().all()
 
     count = 0
+    push_failures = 0
     for pps in rows:
-        if pps.ceiling_price:
-            pps.current_price = (pps.ceiling_price / Decimal("2")).quantize(Decimal("0.01"))
-            session.add(pps)
-            count += 1
+        target_price = (pps.ceiling_price / Decimal("2")).quantize(Decimal("0.01"))
+        integration = _make_integration(pps.platform)
+        try:
+            success = await integration.update_price(pps.external_id, float(target_price))
+        except IntegrationError as exc:
+            logger.warning("reset-prices push failed pps=%d: %s", pps.id, exc)
+            success = False
+        if not success:
+            push_failures += 1
+            continue
+        pps.current_price = target_price
+        pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
+        session.add(pps)
+        count += 1
 
     await session.commit()
-    return ResetPricesResult(reset_count=count)
+    return ResetPricesResult(reset_count=count, push_failures=push_failures)
