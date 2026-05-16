@@ -1,43 +1,44 @@
 # OptiPrice AI
 
-> **BTK Akademi × Google × Girvak — Shackathon'26**
-> Multi-channel autonomous pricing & listing agent for e-commerce sellers.
+> **BTK Akademi × Google × GİRVAK — Hackathon'26**
+> Autonomous multi-channel pricing & listing agent for e-commerce sellers.
 
-OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **once** — OptiPrice then:
+OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **once** — then Gemini-powered agents:
 
-1. **Lists** it on Trendyol, Amazon, and the seller's own storefront with **platform-tailored AI-generated copy** (Gemini Structured Outputs)
-2. **Watches** competitor prices every 5 seconds via an async polling loop
-3. **Re-prices autonomously** under cost / commission / shipping constraints using a **Gemini Function Calling agent loop**
-4. **Streams every decision** to a live terminal-style transparency dashboard (SSE)
+1. **List** it on Trendyol, Amazon, and the seller's own storefront with **platform-tailored AI copy** (Gemini Structured Outputs)
+2. **Watch** competitor prices every 5 seconds via an async polling loop
+3. **Re-price autonomously** under cost / commission / floor constraints using a **Gemini Function Calling agent loop**
+4. **Hold for human approval** when confidence score drops below threshold (Human-in-the-Loop)
+5. **Stream every decision** to a live terminal-style transparency dashboard (SSE)
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│  Frontend: Next.js 16 (App Router) + TypeScript + Tailwind CSS  │
-│  /products  /logs (SSE live terminal)  /simulator (jury demo)   │
-└──────────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│  Frontend: Next.js 16 (App Router) · TypeScript · Tailwind CSS   │
+│  /products  /logs (SSE live terminal)  /simulator  /dashboard    │
+└──────────────────────────┬───────────────────────────────────────┘
                            │ REST / SSE
-┌──────────────────────────▼──────────────────────────────────────┐
-│  Backend Core API: FastAPI (Python 3.14, async)                  │
-│  /api/products  /api/pricing  /api/agents/logs/stream  /api/sim  │
-└──┬──────────────┬──────────────┬──────────────┬─────────────────┘
+┌──────────────────────────▼───────────────────────────────────────┐
+│  Backend: FastAPI (Python 3.12, async)                            │
+│  /api/products  /api/pricing  /api/agents/logs/stream  /api/sim   │
+└──┬──────────────┬──────────────┬──────────────┬──────────────────┘
    │              │              │              │
 ┌──▼──────┐  ┌───▼──────┐  ┌───▼────────┐  ┌──▼──────────────────┐
 │ Listing │  │ Pricing  │  │ Competitor │  │ Mock Platform Svcs  │
 │  Agent  │  │  Agent   │  │  Watcher   │  │  Trendyol  :9001    │
-│(Gemini  │  │(Gemini   │  │(async 5s   │  │  Amazon    :9002    │
-│Struct.  │  │Function  │  │  poll)     │  │  OwnSite   :9003    │
-│Output)  │  │Calling)  │  │            │  │  (FastAPI + SQLite) │
+│(Gemini  │  │(Gemini   │  │ (5s poll)  │  │  Amazon    :9002    │
+│Struct.  │  │FnCalling)│  │            │  │  OwnSite   :9003    │
+│Output)  │  │          │  │            │  │  (FastAPI + SQLite) │
 └─────────┘  └──────────┘  └────────────┘  └─────────────────────┘
                   │                               │
                   └───────────────────────────────┘
                                   │
                       ┌───────────▼──────────┐
-                      │  SQLite + SQLAlchemy  │
-                      │  (PostgreSQL-ready)   │
+                      │  Supabase Postgres   │
+                      │  (asyncpg, RLS)      │
                       └──────────────────────┘
 ```
 
@@ -45,27 +46,33 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 
 | Agent | Trigger | Model | Method |
 |---|---|---|---|
-| **ListingAgent** | "Send to all platforms" button | Gemini 2.0 Flash | Structured Outputs (JSON Schema) |
-| **PricingAgent** | Competitor price change / manual | Gemini 2.0 Flash | Function Calling loop (max 6 turns) |
+| **ListingAgent** | Product save | Gemini 2.5 Flash | Structured Outputs — 3 platforms in parallel |
+| **PricingAgent** | Competitor change / manual / low stock | Gemini 2.5 Flash | Function Calling loop (max 6 turns) |
 | **CompetitorWatcher** | Always-on async loop | — | httpx polling every 5s |
+| **SalesAssistant** | User question | Gemini 2.5 Flash | Single-shot with product + log context |
+| **InsightsAgent** | Dashboard load | Gemini 2.5 Flash | Analytics summary → actionable suggestions |
 
 ### Platform Pricing Strategies
 
 | Platform | Commission | Strategy | Logic |
 |---|---|---|---|
-| Trendyol | 20% | `buybox` | Undercut lowest competitor by 0.50 TL (floor-protected) |
-| Amazon | 15% | `logistics_balance` | Stay near competitor average |
-| Own Site | 2% | `profit_max` | Maximize margin; 5% below competitor if one exists |
+| Trendyol | 20% | `buybox` | If we have buybox: raise to 0.50 ₺ above 2nd cheapest. If lost: undercut winner by 0.50 ₺ |
+| Amazon | 15% | `logistics_balance` | Stay near competitor **median** (outlier-resistant) |
+| Own Site | 2% | `profit_max` | We have buybox: raise 5% toward ceiling. Lost: 5% below reference competitor |
 
 ---
 
 ## Tech Stack
 
-**Backend:** Python 3.14, FastAPI, SQLAlchemy 2 (async), Alembic, httpx, Pydantic v2, google-genai 2.0  
-**Frontend:** Next.js 16, React 19, TypeScript 5.9, Tailwind CSS 4, react-hook-form + zod  
-**AI:** Gemini 2.0 Flash — Structured Outputs for listing, Function Calling for pricing  
-**Storage:** SQLite (dev) → PostgreSQL-ready schema  
-**Package managers:** uv (Python), pnpm (Node)
+| Layer | Technology |
+|---|---|
+| **Frontend** | Next.js 16 (App Router), TypeScript, Tailwind CSS, Shadcn UI, Recharts |
+| **Backend** | FastAPI (Python 3.12), SQLAlchemy 2.0 (async), Pydantic v2, asyncpg |
+| **Database** | Supabase Postgres with Row Level Security |
+| **AI / Agents** | Google Gemini 2.5 Flash — Function Calling + Structured Outputs |
+| **Auth** | NextAuth v5 (JWT cookies), bcrypt, password reset via Resend |
+| **Realtime** | SSE (Server-Sent Events), per-user queues, auto-reconnect |
+| **Deploy** | Railway (backend + mock services), Vercel (frontend) |
 
 ---
 
@@ -73,36 +80,41 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 
 ### Prerequisites
 
-- Python 3.11+ (tested on 3.14)
+- Python 3.12+
 - Node.js 20+
-- [uv](https://docs.astral.sh/uv/) — fast Python package manager
-- [pnpm](https://pnpm.io/) — Node package manager
-- A [Gemini API key](https://aistudio.google.com/app/apikey) (free tier is enough)
+- [pnpm](https://pnpm.io/)
+- A [Gemini API key](https://aistudio.google.com/app/apikey)
+- A Supabase project (or adapt `DATABASE_URL` to a local Postgres)
 
 ### 1. Clone & configure
 
 ```bash
 git clone <repo-url> optiprice
 cd optiprice
-cp .env.example .env   # Windows: copy .env.example .env
-# Edit .env and set GEMINI_API_KEY=your_key_here
+cp backend/.env.example backend/.env
+# Set GEMINI_API_KEY, DATABASE_URL, NEXTAUTH_SECRET, etc.
 ```
 
-### 2. Mock platform services (3 separate terminals)
+### 2. Mock platform services (combined — single port)
 
 ```bash
-cd mock_services/trendyol && uv sync && uv run uvicorn main:app --port 9001
-cd mock_services/amazon   && uv sync && uv run uvicorn main:app --port 9002
-cd mock_services/own_site && uv sync && uv run uvicorn main:app --port 9003
+cd mock_services/combined
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt   # Windows
+# source .venv/bin/activate && pip install -r requirements.txt  # macOS/Linux
+.venv/Scripts/uvicorn main:app --port 9000
 ```
+
+Exposes three routers: `/trendyol`, `/amazon`, `/own_site` — all on port 9000.
 
 ### 3. Backend
 
 ```bash
 cd backend
-uv sync
-uv run uvicorn app.main:app --port 8000
-# DB is auto-created on first run (SQLAlchemy create_all)
+python -m venv .venv
+.venv/Scripts/pip install -r requirements.txt
+.venv/Scripts/uvicorn app.main:app --port 8000
+# Swagger UI: http://localhost:8000/docs
 ```
 
 ### 4. Frontend
@@ -115,10 +127,45 @@ pnpm dev   # http://localhost:3000
 
 ### 5. Seed demo data (optional)
 
+Use the **"Demo verisini yükle"** button on the empty products page — or run:
+
 ```bash
 cd backend
-python seed_demo.py
-# Creates 5 products: Sony, Philips, Xiaomi, Tefal, Logitech — listed on all 3 platforms
+python seed_demo.py --user-id 1
+# Creates 5 products: Sony, Philips, Xiaomi, Tefal, Logitech
+```
+
+### Docker Compose (all services)
+
+```bash
+docker compose build --no-cache && docker compose up
+# Frontend: http://localhost:3000
+# Backend:  http://localhost:8000/docs
+```
+
+---
+
+## Environment Variables
+
+**Backend `backend/.env`:**
+```
+GEMINI_API_KEY=...
+GEMINI_MODEL=gemini-2.5-flash
+DATABASE_URL=postgresql+asyncpg://user:pass@host:port/db
+NEXTAUTH_SECRET=...
+RESEND_API_KEY=...
+RESEND_FROM_EMAIL=noreply@yourdomain.com
+APP_PUBLIC_URL=http://localhost:3000
+MOCK_TRENDYOL_URL=http://localhost:9000/trendyol
+MOCK_AMAZON_URL=http://localhost:9000/amazon
+MOCK_OWN_SITE_URL=http://localhost:9000/own_site
+```
+
+**Frontend `frontend/.env.local`:**
+```
+AUTH_SECRET=...          # same value as NEXTAUTH_SECRET
+BACKEND_URL=http://localhost:8000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
 ---
@@ -126,62 +173,79 @@ python seed_demo.py
 ## Key Features
 
 ### Multi-Platform Listing
-One product definition → three platform-specific AI descriptions generated in parallel. Gemini adapts tone per platform: SEO/keyword-heavy for Trendyol, bullet-point technical for Amazon, brand storytelling for the seller's own site.
+One product → three platform-specific AI descriptions generated in parallel via `asyncio.gather`. Gemini adapts tone per platform: SEO/keyword-heavy for Trendyol, bullet-point technical for Amazon, brand storytelling for the seller's own site.
 
-### Autonomous Re-pricing
-The PricingAgent runs a Gemini Function Calling loop:
-1. `get_competitor_prices` — fetch live competitor snapshot
-2. `calculate_floor_price` — compute cost + shipping + commission floor
-3. Strategy decision (buybox / logistics_balance / profit_max)
-4. `update_platform_price` — apply new price if delta > 0.50 TL
-5. `log_decision` — write audit log
+### Autonomous Re-pricing with Floor Protection
+PricingAgent runs a Gemini Function Calling loop:
+1. `get_competitor_prices` — fetch live snapshot from mock service
+2. `calculate_floor_price` — `(cost + shipping) / (1 - commission - 5% margin)`
+3. Strategy decision (buybox / logistics_balance / profit_max) with outlier detection
+4. `update_platform_price` — apply if Δ > 0.50 ₺ and above floor
+5. `log_decision` — write audit log with full reasoning
 
-Floor protection: if the target price would drop below `(cost + shipping) / (1 - commission - 5% margin)`, the agent logs `floor_hit` and holds at the floor price — never sells at a loss.
+### Human-in-the-Loop
+Confidence score computed on every `update_platform_price` call. Score < 75 → `PENDING_APPROVAL` decision: price is held, user sees "⚠ ONAY BEKLİYOR" badge in the live log and can Approve or Reject inline.
 
 ### Live Log Dashboard
-Every agent decision streams to a terminal-style SSE panel in real time:
+Every agent decision streams to a terminal-style SSE panel:
 ```
-[12:04:33] PricingAgent · Trendyol / SONY-WH1000XM5 · competitor_change
-  ▸ tool: get_competitor_prices()  → 3890.00 TL (was 4100.00)
-  ▸ tool: calculate_floor_price()  → 3780.00 TL
-  ↳ reasoning: Strateji buybox: 3967 → 3889.50 TL (5 rakip, floor 3780 TL).
-  ↳ DECISION: price_updated (3967.05 → 3889.50 ₺) in 1340ms
+[14:22:11] PricingAgent · Trendyol / SONY-WH1000XM5 · competitor_change
+  ▸ tool: get_competitor_prices()  → 3890.00 ₺ (was 4100.00)
+  ▸ tool: calculate_floor_price()  → 3780.00 ₺
+  ↳ reasoning: Buybox bizde; 2. en ucuz rakip 3967 ₺ → 0.50 ₺ üstüne çıkıyorum.
+  ↳ DECISION: price_updated (3967.05 → 3967.50 ₺)  confidence: 91  18340ms
 ```
 
+### Agent Reasoning Card
+Each platform card on the product detail page shows an expandable "Last Agent Decision" section: decision badge, confidence bar, full Gemini Turkish reasoning, tool call list, price delta, and duration.
+
 ### Competitor Simulator (Jury Demo)
-A panel at `/simulator` lets anyone change competitor prices live. The CompetitorWatcher detects the change within 5 seconds, the PricingAgent responds autonomously, and the decision streams to the live log panel — all visible in real time.
+`/simulator` lets anyone change competitor prices live. CompetitorWatcher detects the change within 5 seconds, PricingAgent responds autonomously, and the decision streams to the live log — all visible in real time.
+
+### AI Insights
+Dashboard shows 3-5 prioritized Gemini-generated action suggestions based on the last 24 hours of logs and current buybox/stock state. Rule-based fallback if Gemini is unavailable.
+
+### Stock-Based Pricing
+When a product's stock drops to ≤ 10 units, CompetitorWatcher automatically triggers PricingAgent with `profit_max` strategy override and a 1-hour cooldown to prevent spam.
 
 ---
 
 ## Project Structure
 
 ```
-bkt_hackathon_2026/
-├── CLAUDE.md                    # project constitution + dev log
+optiprice/
 ├── backend/
 │   ├── app/
-│   │   ├── agents/              # ListingAgent, PricingAgent, CompetitorWatcher
-│   │   ├── api/                 # products, pricing, agents (SSE), simulator
-│   │   ├── db/                  # SQLAlchemy models + session
-│   │   ├── integrations/        # BasePricingIntegration + 3 mock clients
-│   │   └── schemas/
-│   └── seed_demo.py             # demo data seed script
+│   │   ├── agents/          # listing_agent.py, pricing_agent.py, competitor_watcher.py
+│   │   ├── api/             # products, pricing, agents (SSE), simulator, analytics, connections
+│   │   ├── db/              # SQLAlchemy models + async session
+│   │   ├── integrations/    # BasePricingIntegration + 3 mock HTTP clients
+│   │   └── core/            # auth, security, deps, config
+│   └── seed_demo.py
 ├── mock_services/
-│   ├── trendyol/                # :9001 — buybox, 5 competitors, [-8%,+8%] band
-│   ├── amazon/                  # :9002 — ASIN IDs, 4 competitors, FBA/FBM
-│   └── own_site/                # :9003 — no competitors, profit_max
+│   ├── combined/            # Single-port FastAPI app (:9000) with /trendyol /amazon /own_site routers
+│   ├── trendyol/            # Standalone :9001
+│   ├── amazon/              # Standalone :9002
+│   └── own_site/            # Standalone :9003
 └── frontend/
-    ├── src/app/
-    │   ├── products/            # list + new + [id] detail
-    │   ├── logs/                # SSE live terminal
-    │   └── simulator/           # competitor price editor
-    └── src/lib/api.ts           # typed API client + domain types
+    └── src/
+        ├── app/
+        │   ├── (landing)/   # / landing page
+        │   ├── pricing/     # /pricing static page
+        │   ├── plan/        # /plan authenticated plan panel
+        │   ├── products/    # list + new + [id] detail
+        │   ├── logs/        # SSE live terminal
+        │   ├── simulator/   # competitor price editor
+        │   ├── dashboard/   # analytics + insights
+        │   ├── connections/ # platform account management
+        │   └── profile/     # user profile
+        ├── components/      # AgentReasoningCard, AgentChainTimeline, SalesAssistant,
+        │                    # ConfidenceBar, InsightsCard, PriceHistoryChart, FloatingActions
+        └── lib/api.ts       # typed API client
 ```
 
 ---
 
-## Submission
+## License
 
-**Competition:** BTK Akademi × Google × Girvak — Shackathon'26  
-**Deadline:** 19 May 2026, 23:59  
-**Team:** ahmetakyurt
+GNU AGPL v3 — see [LICENSE](./LICENSE)
