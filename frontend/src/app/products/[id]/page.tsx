@@ -145,7 +145,7 @@ export default async function ProductDetailPage({
             <div className="px-4 py-3 flex flex-col gap-2">
               <Row label="Güncel Fiyat" value={ps.current_price != null ? `${Number(ps.current_price).toFixed(2)} ₺` : "—"} />
               <Row label="Taban Fiyat" value={ps.floor_price != null ? `${Number(ps.floor_price).toFixed(2)} ₺` : "—"} />
-              <Row label="Rakip Fiyatı" value={ps.competitor_price != null ? `${Number(ps.competitor_price).toFixed(2)} ₺` : "—"} />
+              <Row label={ps.platform_code === "own_site" ? "Pazar Ref." : "Rakip Fiyatı"} value={ps.competitor_price != null ? `${Number(ps.competitor_price).toFixed(2)} ₺` : "—"} />
               <Row
                 label="Buybox"
                 value={ps.has_buybox ? "✓ Bizde" : "✗ Rakipte"}

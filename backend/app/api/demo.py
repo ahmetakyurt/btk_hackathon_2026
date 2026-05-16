@@ -465,13 +465,16 @@ async def seed_demo_data(
             for log in mock_logs:
                 session.add(log)
 
-        # Update half the statuses to have buybox so dashboard metrics look realistic.
-        for i, status in enumerate(fresh_statuses):
-            status.has_buybox = i % 2 == 0
-            status.competitor_price = (status.current_price or Decimal("0")) + Decimal(
-                str(round(random.uniform(1, 50), 2))
-            )
-            session.add(status)
+        # Set competitor_price only for marketplace platforms (own_site has no real competitors).
+        # has_buybox is left to CompetitorWatcher — setting it here artificially
+        # causes stale/wrong buybox display until the watcher first runs.
+        for status in fresh_statuses:
+            await session.refresh(status, attribute_names=["platform"])
+            if status.platform.code != "own_site":
+                status.competitor_price = (status.current_price or Decimal("0")) + Decimal(
+                    str(round(random.uniform(10, 80), 2))
+                )
+                session.add(status)
 
         await session.commit()
 

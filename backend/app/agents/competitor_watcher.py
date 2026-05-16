@@ -108,8 +108,11 @@ class CompetitorWatcher:
                 logger.debug("Competitor fetch failed for %s/%s: %s", platform.code, product.sku, exc)
                 return
 
+            # ── own_site: no marketplace competitors; use sibling platform prices ──
             if not snapshot.competitors:
-                # own_site has no competitors — nothing to react to
+                if platform.code != "own_site":
+                    return  # non-own_site with no competitors — nothing to do
+                await self._check_own_site(pps, product, platform, session)
                 return
 
             new_min = min(c.price for c in snapshot.competitors)
@@ -250,6 +253,147 @@ class CompetitorWatcher:
                     "is_pending_approval": log.is_pending_approval,
                 }
                 await self._on_log(log_data, user_id=product.user_id)
+
+
+    async def _check_own_site(
+        self,
+        pps: ProductPlatformStatus,
+        product: Product,
+        platform: Platform,
+        session: Any,
+    ) -> None:
+        """Price own_site using sibling Trendyol/Amazon prices as reference.
+
+        own_site has no marketplace competitors, so we look at the same product's
+        current_price on the other platforms and treat those as virtual competitors.
+        This lets PROFIT_MAX make informed decisions (e.g. stay above market average).
+        """
+        # Fetch sibling platform statuses for the same product
+        siblings = (
+            await session.scalars(
+                select(ProductPlatformStatus)
+                .join(ProductPlatformStatus.platform)
+                .where(
+                    ProductPlatformStatus.product_id == pps.product_id,
+                    ProductPlatformStatus.id != pps.id,
+                    ProductPlatformStatus.status == "listed",
+                    ProductPlatformStatus.current_price.isnot(None),
+                    Platform.code.in_(["trendyol", "amazon"]),
+                )
+                .options(selectinload(ProductPlatformStatus.platform))
+            )
+        ).all()
+
+        if not siblings:
+            return  # no other platforms yet — nothing to reference
+
+        virtual_competitors = [
+            {
+                "seller": f"Pazar-{s.platform.display_name}",
+                "price": float(s.current_price),
+                "has_buybox": False,
+            }
+            for s in siblings
+        ]
+        cross_platform_min = min(Decimal(str(s.current_price)) for s in siblings)
+
+        old_ref = pps.competitor_price
+        pps.competitor_price = cross_platform_min
+        pps.has_buybox = True  # own_site always "wins" on its own storefront
+        pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
+
+        if not _price_changed(old_ref, cross_platform_min):
+            await session.commit()
+            return
+
+        logger.info(
+            "own_site cross-platform ref changed: %s  ref=%s TL",
+            product.sku, cross_platform_min,
+        )
+
+        floor_price = pps.floor_price or compute_floor_price(
+            product.base_cost, product.shipping_cost,
+            Decimal(str(platform.commission_rate)),
+        )
+        ceiling_price = pps.ceiling_price or (floor_price * Decimal("2")).quantize(Decimal("0.01"))
+        current_price = pps.current_price or floor_price
+
+        ctx = PricingContext(
+            product_platform_id=pps.id,
+            sku=product.sku,
+            platform_code=platform.code,
+            strategy=PricingStrategy(platform.pricing_strategy),
+            current_price=current_price,
+            floor_price=floor_price,
+            ceiling_price=ceiling_price,
+            base_cost=product.base_cost,
+            shipping_cost=product.shipping_cost,
+            commission_rate=Decimal(str(platform.commission_rate)),
+            external_id=pps.external_id,
+            virtual_competitors=virtual_competitors,
+        )
+
+        settings = get_settings()
+        agent = PricingAgent(
+            api_key=settings.gemini_api_key,
+            model=settings.gemini_model,
+            timeout=float(settings.gemini_timeout_seconds),
+        )
+        integration = _make_integration(platform)
+        result = await agent.run(ctx, integration, trigger_event="cross_platform_ref")
+
+        log = PricingAgentLog(
+            product_platform_id=pps.id,
+            agent_name="PricingAgent",
+            trigger_event="cross_platform_ref",
+            input_snapshot={
+                "sku": product.sku,
+                "platform_code": platform.code,
+                "strategy": platform.pricing_strategy,
+                "current_price": float(current_price),
+                "floor_price": float(floor_price),
+                "cross_platform_ref": float(cross_platform_min),
+                "virtual_competitors": virtual_competitors,
+            },
+            reasoning=result.reasoning,
+            tool_calls=result.tool_calls,
+            old_price=result.old_price,
+            new_price=result.new_price,
+            decision=result.decision.value,
+            duration_ms=result.duration_ms,
+            confidence_score=result.confidence_score,
+            is_pending_approval=result.requires_approval,
+        )
+        session.add(log)
+
+        if result.decision in (PricingDecision.PRICE_UPDATED, PricingDecision.FLOOR_HIT):
+            pps.current_price = result.new_price
+
+        pps.last_confidence_score = result.confidence_score
+        if result.requires_approval:
+            pps.requires_approval = True
+
+        await session.commit()
+        await session.refresh(log)
+
+        if self._on_log is not None and product.user_id is not None:
+            await self._on_log({
+                "id": log.id,
+                "product_platform_id": log.product_platform_id,
+                "agent_name": log.agent_name,
+                "trigger_event": log.trigger_event,
+                "sku": product.sku,
+                "platform_code": platform.code,
+                "old_price": float(log.old_price) if log.old_price else None,
+                "new_price": float(log.new_price) if log.new_price else None,
+                "decision": log.decision,
+                "reasoning": log.reasoning,
+                "tool_calls": log.tool_calls,
+                "duration_ms": log.duration_ms,
+                "created_at": (log.created_at.isoformat() + "Z") if log.created_at else None,
+                "confidence_score": log.confidence_score,
+                "is_pending_approval": log.is_pending_approval,
+            }, user_id=product.user_id)
 
 
 # ─── Helper ───────────────────────────────────────────────────────────────────

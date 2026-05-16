@@ -56,6 +56,9 @@ class PricingContext:
     commission_rate: Decimal
     external_id: str
     min_margin: float = 0.05
+    # Pre-fetched competitor list — when set, skips the integration call.
+    # Used by CompetitorWatcher for own_site to inject cross-platform prices.
+    virtual_competitors: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -439,6 +442,12 @@ class PricingAgent:
         integration: BasePricingIntegration,
     ) -> dict[str, Any]:
         if name == "get_competitor_prices":
+            if ctx.virtual_competitors:
+                return {
+                    "competitors": ctx.virtual_competitors,
+                    "own_has_buybox": True,
+                    "own_price": float(ctx.current_price),
+                }
             return await _tool_get_competitor_prices(integration, ctx.external_id)
         if name == "calculate_floor_price":
             return _tool_calculate_floor_price(**args)
@@ -577,8 +586,15 @@ class PricingAgent:
         start = time.monotonic()
         tool_calls: list[dict[str, Any]] = []
 
-        # 1. Competitor prices
-        comp_result = await _tool_get_competitor_prices(integration, ctx.external_id)
+        # 1. Competitor prices (use pre-fetched virtual list for own_site cross-platform ref)
+        if ctx.virtual_competitors:
+            comp_result = {
+                "competitors": ctx.virtual_competitors,
+                "own_has_buybox": True,
+                "own_price": float(ctx.current_price),
+            }
+        else:
+            comp_result = await _tool_get_competitor_prices(integration, ctx.external_id)
         tool_calls.append({"tool": "get_competitor_prices", "args": {}, "result": comp_result})
 
         # 2. Verify floor price

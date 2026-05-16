@@ -160,6 +160,11 @@ async def get_simulator_state(session: SessionDep, user_id: UserIdDep) -> list[P
                     own_price = float(data["own_price"])
                     own_has_buybox = data["own_has_buybox"]
                     competitors = [CompetitorInfo(**c) for c in data["competitors"]]
+                    # Sync live buybox status back to DB so product detail page stays accurate.
+                    if pps.has_buybox != own_has_buybox:
+                        pps.has_buybox = own_has_buybox
+                        session.add(pps)
+                        await session.commit()
             except Exception as exc:
                 logger.warning(
                     "Could not fetch competitors for %s/%s (will show fallback): %s",
