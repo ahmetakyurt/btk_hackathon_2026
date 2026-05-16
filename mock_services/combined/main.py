@@ -215,10 +215,13 @@ class TyAdminRequest(BaseModel):
 
 
 def _ty_seed_competitors(price: Decimal) -> list[TyCompetitor]:
+    # Competitors start 3–25% above our listing price so we naturally win buybox
+    # and the BUYBOX strategy raises our price toward theirs over time.
+    # Simulator lets the jury drop competitors below us to trigger repricing.
     return [
         TyCompetitor(
             seller_name=name,
-            price=(price * (Decimal("1") + Decimal(str(random.uniform(-0.08, 0.08))))).quantize(Decimal("0.01")),
+            price=(price * (Decimal("1") + Decimal(str(random.uniform(0.03, 0.25))))).quantize(Decimal("0.01")),
         )
         for name in random.sample(TY_COMPETITOR_NAMES, 5)
     ]
@@ -354,10 +357,11 @@ class AzAdminRequest(BaseModel):
 
 
 def _az_seed_competitors(price: Decimal) -> list[AzCompetitor]:
+    # Competitors start 3–20% above our listing price so we naturally win buybox.
     return [
         AzCompetitor(
             seller_name=name,
-            price=(price * (Decimal("1") + Decimal(str(random.uniform(-0.06, 0.06))))).quantize(Decimal("0.01")),
+            price=(price * (Decimal("1") + Decimal(str(random.uniform(0.03, 0.20))))).quantize(Decimal("0.01")),
         )
         for name in random.sample(AZ_COMPETITOR_NAMES, 4)
     ]

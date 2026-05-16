@@ -258,6 +258,22 @@ async def set_competitor_price(
                     "seller_name": target["seller_name"],
                 }
             r.raise_for_status()
+            # Sync buybox + competitor_price to DB so product page reflects new state immediately.
+            try:
+                snap = await client.get(f"{base_url}/products/{pps.external_id}/competitors")
+                if snap.status_code == 200:
+                    snap_data = snap.json()
+                    new_has_buybox = bool(snap_data.get("own_has_buybox", False))
+                    comps = snap_data.get("competitors", [])
+                    if comps:
+                        from decimal import Decimal as _D
+                        new_min = min(_D(str(c["price"])) for c in comps)
+                        pps.competitor_price = new_min
+                    pps.has_buybox = new_has_buybox
+                    session.add(pps)
+                    await session.commit()
+            except Exception:
+                pass  # best-effort sync; CompetitorWatcher will catch up within 5s
             return r.json()
         except httpx.HTTPStatusError as exc:
             raise HTTPException(status_code=exc.response.status_code, detail=str(exc))
