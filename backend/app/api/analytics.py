@@ -254,11 +254,12 @@ async def get_insights(
     context_str = _build_insights_context(platform_rows, buybox_map, low_stock_count, pending_count)
 
     settings = get_settings()
+    from app.core.gemini_client import gemini_available
     ai_insights: list[Insight] = []
-    if settings.gemini_api_key:
+    if gemini_available():
         try:
             ai_insights = await asyncio.wait_for(
-                _generate_ai_insights(settings.gemini_api_key, settings.gemini_model, context_str),
+                _generate_ai_insights(settings.gemini_model, context_str),
                 timeout=float(settings.gemini_timeout_seconds),
             )
         except Exception as exc:
@@ -291,10 +292,12 @@ def _build_insights_context(platform_rows: list, buybox_map: dict, low_stock: in
     return "\n".join(lines)
 
 
-async def _generate_ai_insights(api_key: str, model: str, context: str) -> list[Insight]:
-    from google import genai
+async def _generate_ai_insights(model: str, context: str) -> list[Insight]:
+    from app.core.gemini_client import build_genai_client
 
-    client = genai.Client(api_key=api_key)
+    client = build_genai_client()
+    if client is None:
+        return []
     prompt = f"""Sen OptiPrice AI'ın analiz asistanısın. Bir e-ticaret satıcısına Türkçe öneriler sun.
 
 VERİ:
