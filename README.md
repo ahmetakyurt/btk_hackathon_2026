@@ -6,8 +6,8 @@
 OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **once** — then Gemini-powered agents:
 
 1. **List** it on Trendyol, Amazon, and the seller's own storefront with **platform-tailored AI copy** (Gemini Structured Outputs)
-2. **Watch** competitor prices every 5 seconds via an async polling loop
-3. **Re-price autonomously** under cost / commission / floor constraints using a **Gemini Function Calling agent loop**
+2. **Watch** competitor prices via an async polling loop (configurable interval)
+3. **Re-price autonomously** under cost / commission / floor constraints using a **Gemini Function Calling agent loop** — with a deterministic fallback that keeps pricing alive even if Gemini quota is exhausted
 4. **Hold for human approval** when confidence score drops below threshold (Human-in-the-Loop)
 5. **Stream every decision** to a live terminal-style transparency dashboard (SSE)
 
@@ -29,7 +29,7 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 ┌──▼──────┐  ┌───▼──────┐  ┌───▼────────┐  ┌──▼──────────────────┐
 │ Listing │  │ Pricing  │  │ Competitor │  │ Mock Platform Svcs  │
 │  Agent  │  │  Agent   │  │  Watcher   │  │  Trendyol  :9001    │
-│(Gemini  │  │(Gemini   │  │ (5s poll)  │  │  Amazon    :9002    │
+│(Gemini  │  │(Gemini   │  │(20s poll,  │  │  Amazon    :9002    │
 │Struct.  │  │FnCalling)│  │            │  │  OwnSite   :9003    │
 │Output)  │  │          │  │            │  │  (FastAPI + SQLite) │
 └─────────┘  └──────────┘  └────────────┘  └─────────────────────┘
@@ -48,7 +48,7 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 |---|---|---|---|
 | **ListingAgent** | Product save | Gemini 2.5 Flash | Structured Outputs — 3 platforms in parallel |
 | **PricingAgent** | Competitor change / manual / low stock | Gemini 2.5 Flash | Function Calling loop (max 6 turns) |
-| **CompetitorWatcher** | Always-on async loop | — | httpx polling every 5s |
+| **CompetitorWatcher** | Always-on async loop | — | httpx polling every 20s (configurable via `COMPETITOR_POLL_INTERVAL_SECONDS`) |
 | **SalesAssistant** | User question | Gemini 2.5 Flash | Single-shot with product + log context |
 | **InsightsAgent** | Dashboard load | Gemini 2.5 Flash | Analytics summary → actionable suggestions |
 
@@ -58,7 +58,7 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 |---|---|---|---|
 | Trendyol | 20% | `buybox` | If we have buybox: raise to 0.50 ₺ above 2nd cheapest. If lost: undercut winner by 0.50 ₺ |
 | Amazon | 15% | `logistics_balance` | Stay near competitor **median** (outlier-resistant) |
-| Own Site | 2% | `profit_max` | We have buybox: raise 5% toward ceiling. Lost: 5% below reference competitor |
+| Own Site | 2% | `profit_max` | We have buybox: raise 5% toward ceiling. Lost: 5% below reference competitor. Uses **cross-platform reference** — sibling Trendyol/Amazon prices injected as virtual competitors since own_site has no marketplace rivals |
 
 ---
 
@@ -159,6 +159,9 @@ APP_PUBLIC_URL=http://localhost:3000
 MOCK_TRENDYOL_URL=http://localhost:9000/trendyol
 MOCK_AMAZON_URL=http://localhost:9000/amazon
 MOCK_OWN_SITE_URL=http://localhost:9000/own_site
+COMPETITOR_POLL_INTERVAL_SECONDS=20
+PRICING_AGENT_MIN_MARGIN=0.05
+GEMINI_TIMEOUT_SECONDS=15
 ```
 
 **Frontend `frontend/.env.local`:**
@@ -200,7 +203,7 @@ Every agent decision streams to a terminal-style SSE panel:
 Each platform card on the product detail page shows an expandable "Last Agent Decision" section: decision badge, confidence bar, full Gemini Turkish reasoning, tool call list, price delta, and duration.
 
 ### Competitor Simulator (Jury Demo)
-`/simulator` lets anyone change competitor prices live. CompetitorWatcher detects the change within 5 seconds, PricingAgent responds autonomously, and the decision streams to the live log — all visible in real time.
+`/simulator` lets anyone change competitor prices live. CompetitorWatcher detects the change on its next tick (default 20s), PricingAgent responds autonomously, and the decision streams to the live log — all visible in real time. The simulator also syncs buybox state to the DB immediately for instant UI feedback.
 
 ### AI Insights
 Dashboard shows 3-5 prioritized Gemini-generated action suggestions based on the last 24 hours of logs and current buybox/stock state. Rule-based fallback if Gemini is unavailable.

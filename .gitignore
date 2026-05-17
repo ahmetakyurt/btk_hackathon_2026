@@ -81,3 +81,5 @@ backend/_*.log
 screenshots/
 
 E2E_SMOKE_TEST.md
+
+test_errors.txt
