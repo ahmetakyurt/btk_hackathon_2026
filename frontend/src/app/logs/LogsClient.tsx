@@ -111,12 +111,23 @@ function LogEntry({ log, onApprove, onReject }: {
         </div>
       )}
 
-      {log.reasoning && (
-        <div className="mt-1.5 ml-4 text-zinc-400">
-          <span className="text-zinc-600">↳ reasoning: </span>
-          {log.reasoning}
-        </div>
-      )}
+      {log.reasoning && (() => {
+        const m = log.reasoning.match(/^\[(GEMINI|DETERMINISTIC)\]\s*(.*)$/s);
+        const mode = m?.[1];
+        const text = m ? m[2] : log.reasoning;
+        return (
+          <div className="mt-1.5 ml-4 text-zinc-400">
+            <span className="text-zinc-600">↳ reasoning: </span>
+            {mode === "GEMINI" && (
+              <span className="mr-1.5 px-1.5 py-0.5 rounded text-emerald-300 bg-emerald-900/40 text-[10px] font-semibold align-middle">GEMINI</span>
+            )}
+            {mode === "DETERMINISTIC" && (
+              <span className="mr-1.5 px-1.5 py-0.5 rounded text-sky-300 bg-sky-900/40 text-[10px] font-semibold align-middle">DETERMINISTIC</span>
+            )}
+            {text}
+          </div>
+        );
+      })()}
 
       {log.confidence_score != null && (
         <ConfidenceBar score={log.confidence_score} />

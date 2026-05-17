@@ -598,7 +598,7 @@ class PricingAgent:
             decision=final_decision,
             old_price=ctx.current_price,
             new_price=new_price,
-            reasoning=final_reasoning,
+            reasoning=f"[GEMINI] {final_reasoning}",
             tool_calls=tool_calls,
             duration_ms=int((time.monotonic() - start) * 1000),
             confidence_score=confidence_score,
@@ -654,7 +654,7 @@ class PricingAgent:
                 old_price=ctx.current_price,
                 new_price=target,  # proposed but not applied
                 reasoning=(
-                    f"Kritik fiyat değişimi tespit edildi — güven skoru {confidence_score:.0f}/100 "
+                    f"[DETERMINISTIC] Kritik fiyat değişimi tespit edildi — güven skoru {confidence_score:.0f}/100 "
                     f"(eşik {_CONFIDENCE_THRESHOLD:.0f}). "
                     f"Önerilen fiyat {target} TL, onay bekleniyor."
                 ),
@@ -713,7 +713,7 @@ class PricingAgent:
             decision=decision,
             old_price=ctx.current_price,
             new_price=new_price,
-            reasoning=reasoning,
+            reasoning=f"[DETERMINISTIC] {reasoning}",
             tool_calls=tool_calls,
             duration_ms=int((time.monotonic() - start) * 1000),
             confidence_score=confidence_score,

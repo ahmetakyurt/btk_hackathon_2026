@@ -88,7 +88,22 @@ export function AgentReasoningCard({ log }: { log: PricingLog }) {
                 Ajan Gerekçesi
               </p>
               <p className="text-[11px] text-zinc-600 dark:text-zinc-400 leading-relaxed">
-                {log.reasoning}
+                {(() => {
+                  const m = log.reasoning.match(/^\[(GEMINI|DETERMINISTIC)\]\s*(.*)$/s);
+                  const mode = m?.[1];
+                  const text = m ? m[2] : log.reasoning;
+                  return (
+                    <>
+                      {mode === "GEMINI" && (
+                        <span className="mr-1.5 px-1.5 py-0.5 rounded text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 text-[9px] font-semibold align-middle">GEMINI</span>
+                      )}
+                      {mode === "DETERMINISTIC" && (
+                        <span className="mr-1.5 px-1.5 py-0.5 rounded text-sky-700 dark:text-sky-300 bg-sky-100 dark:bg-sky-900/40 text-[9px] font-semibold align-middle">DETERMINISTIC</span>
+                      )}
+                      {text}
+                    </>
+                  );
+                })()}
               </p>
             </div>
           )}
