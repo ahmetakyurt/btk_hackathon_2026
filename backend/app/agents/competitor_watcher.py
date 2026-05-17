@@ -294,20 +294,23 @@ class CompetitorWatcher:
             }
             for s in siblings
         ]
-        cross_platform_min = min(Decimal(str(s.current_price)) for s in siblings)
+        sibling_prices = [Decimal(str(s.current_price)) for s in siblings]
+        cross_platform_ref = (
+            sum(sibling_prices, Decimal("0")) / Decimal(len(sibling_prices))
+        ).quantize(Decimal("0.01"))
 
         old_ref = pps.competitor_price
-        pps.competitor_price = cross_platform_min
+        pps.competitor_price = cross_platform_ref
         pps.has_buybox = True  # own_site always "wins" on its own storefront
         pps.last_synced_at = datetime.now(UTC).replace(tzinfo=None)
 
-        if not _price_changed(old_ref, cross_platform_min):
+        if not _price_changed(old_ref, cross_platform_ref):
             await session.commit()
             return
 
         logger.info(
             "own_site cross-platform ref changed: %s  ref=%s TL",
-            product.sku, cross_platform_min,
+            product.sku, cross_platform_ref,
         )
 
         floor_price = pps.floor_price or compute_floor_price(
@@ -351,7 +354,7 @@ class CompetitorWatcher:
                 "strategy": platform.pricing_strategy,
                 "current_price": float(current_price),
                 "floor_price": float(floor_price),
-                "cross_platform_ref": float(cross_platform_min),
+                "cross_platform_ref": float(cross_platform_ref),
                 "virtual_competitors": virtual_competitors,
             },
             reasoning=result.reasoning,

@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     mock_own_site_url: str = Field(default="http://localhost:9003", alias="MOCK_OWN_SITE_URL")
 
     competitor_poll_interval_seconds: int = Field(
-        default=5, alias="COMPETITOR_POLL_INTERVAL_SECONDS"
+        default=20, alias="COMPETITOR_POLL_INTERVAL_SECONDS"
     )
     pricing_agent_min_margin: float = Field(default=0.05, alias="PRICING_AGENT_MIN_MARGIN")
 

@@ -104,6 +104,35 @@ async def trigger_pricing(
     )
     ceiling_price = pps.ceiling_price or (floor_price * Decimal("2")).quantize(Decimal("0.01"))
 
+    # own_site has no marketplace competitors — inject sibling Trendyol/Amazon
+    # current_prices as virtual competitors so PROFIT_MAX can make informed decisions.
+    virtual_competitors: list[dict[str, Any]] = []
+    if platform.code == "own_site":
+        siblings = list(
+            (
+                await session.scalars(
+                    select(ProductPlatformStatus)
+                    .join(ProductPlatformStatus.platform)
+                    .where(
+                        ProductPlatformStatus.product_id == product.id,
+                        ProductPlatformStatus.id != pps.id,
+                        ProductPlatformStatus.status == "listed",
+                        ProductPlatformStatus.current_price.isnot(None),
+                        Platform.code.in_(["trendyol", "amazon"]),
+                    )
+                    .options(selectinload(ProductPlatformStatus.platform))
+                )
+            ).all()
+        )
+        virtual_competitors = [
+            {
+                "seller": f"Pazar-{s.platform.display_name}",
+                "price": float(s.current_price),
+                "has_buybox": False,
+            }
+            for s in siblings
+        ]
+
     ctx = PricingContext(
         product_platform_id=pps.id,
         sku=product.sku,
@@ -116,6 +145,7 @@ async def trigger_pricing(
         shipping_cost=product.shipping_cost,
         commission_rate=Decimal(str(platform.commission_rate)),
         external_id=pps.external_id,
+        virtual_competitors=virtual_competitors,
     )
 
     settings = get_settings()

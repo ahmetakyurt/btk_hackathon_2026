@@ -62,6 +62,38 @@ def compute_floor_price(
     return (total_cost / divisor).quantize(Decimal("0.01"))
 
 
+async def _refresh_own_site_market_ref(product_id: int, session: AsyncSession) -> None:
+    """Set own_site's competitor_price to the mean of sibling Trendyol/Amazon current_price.
+
+    Called right after listing/retry so own_site has a Pazar Ref. immediately,
+    without waiting for CompetitorWatcher's next tick.
+    """
+    rows = list(
+        (
+            await session.scalars(
+                select(ProductPlatformStatus)
+                .where(
+                    ProductPlatformStatus.product_id == product_id,
+                    ProductPlatformStatus.status == "listed",
+                )
+                .options(selectinload(ProductPlatformStatus.platform))
+            )
+        ).all()
+    )
+    sibling_prices = [
+        Decimal(str(r.current_price))
+        for r in rows
+        if r.platform.code in ("trendyol", "amazon") and r.current_price is not None
+    ]
+    own_site_rows = [r for r in rows if r.platform.code == "own_site"]
+    if not own_site_rows or not sibling_prices:
+        return
+    mean = (sum(sibling_prices, Decimal("0")) / Decimal(len(sibling_prices))).quantize(Decimal("0.01"))
+    for r in own_site_rows:
+        r.competitor_price = mean
+        r.has_buybox = True
+
+
 # ─── Per-platform listing task ────────────────────────────────────────────────
 
 async def _list_on_platform(
@@ -223,6 +255,8 @@ async def create_product(
     for row in status_rows:
         session.add(row)
 
+    await session.commit()
+    await _refresh_own_site_market_ref(product.id, session)
     await session.commit()
     await session.refresh(product)
 
@@ -434,6 +468,8 @@ async def retry_product_listing(
     tasks = [_retry_one(ps) for ps in error_statuses]
     tasks += [_list_new(p) for p in missing_platforms]
     await asyncio.gather(*tasks)
+    await session.commit()
+    await _refresh_own_site_market_ref(product_id, session)
     await session.commit()
 
     # Re-fetch with relationships
