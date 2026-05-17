@@ -13,6 +13,26 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 
 ---
 
+## For Jury — Test Etmek İçin
+
+Sistemi kurmadan canlı deploy üzerinden test edebilirsiniz:
+
+- **Uygulama:** https://optiprice.online *(landing → "Hemen Başla")*
+- **Demo hesabı:** `jury@optiprice.online` / `OptiPrice2026!`
+  *(veya kendi hesabınızı 10 saniyede oluşturabilirsiniz — e-posta doğrulaması yok)*
+
+**Önerilen test akışı (~2 dakika):**
+
+1. Giriş yapın → **Ürünler** sayfasında **"Demo Verisini Yükle"** butonuna basın *(10 ürün, 3 platforma listelenir)*.
+2. Bir ürüne tıklayın → 3 platform kartında AI üretilmiş başlık/açıklama, güncel fiyat, buybox durumu, son ajan kararı.
+3. Sol menü → **Rakip Simülatörü** → bir rakibin fiyatını ~%15 düşürüp **Güncelle**.
+4. Sol menü → **Canlı Loglar** → 20 saniye içinde PricingAgent'ın kararı SSE üzerinden akacak (tool çağrıları, Türkçe gerekçe, confidence skoru).
+5. **Dashboard** → platform bazlı kâr, buybox oranı, Gemini destekli aksiyon önerileri.
+
+**Not — API kotası tükenirse:** PricingAgent **dual-path** tasarımdadır. Gemini erişilemezse deterministik fallback otomatik devreye girer; sistem aynı kararları kural tabanlı verir, sadece doğal dil gerekçe kaybolur. Yani test sırasında kota tükense bile demo çalışmaya devam eder.
+
+---
+
 ## Architecture
 
 ```
