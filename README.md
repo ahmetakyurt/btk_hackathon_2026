@@ -29,6 +29,8 @@ Sistemi kurmadan canlı deploy üzerinden test edebilirsiniz:
 4. Sol menü → **Canlı Loglar** → 20 saniye içinde PricingAgent'ın kararı SSE üzerinden akacak (tool çağrıları, Türkçe gerekçe, confidence skoru).
 5. **Dashboard** → platform bazlı kâr, buybox oranı, Gemini destekli aksiyon önerileri.
 
+**Not — Rakip Simülatörü hakkında:** `/simulator` sayfası **demo amaçlı bir test aracıdır**, ürünün kalıcı bir özelliği değildir. Hackathon kapsamında gerçek Trendyol Partner / Amazon SP-API entegrasyonları yapılamadığı için mock pazaryeri servisleri kullanıyoruz; jürinin "rakip fiyatını düşürünce ajan ne yapar" senaryosunu canlı görebilmesi için simülatör bu mock servislere doğrudan müdahale etme imkânı veriyor. Gerçek API'lerle entegre edilen prodüksiyon sürümünde bu sayfa yerini canlı rakip izleme paneline bırakacaktır. Mimari hazır: `BasePricingIntegration` abstract class'ı sayesinde mock servisleri gerçek entegrasyonlarla değiştirmek tek dosya değişimi mesafesinde.
+
 **Not — API kotası tükenirse:** PricingAgent **dual-path** tasarımdadır. Gemini erişilemezse deterministik fallback otomatik devreye girer; sistem aynı kararları kural tabanlı verir, sadece doğal dil gerekçe kaybolur. Yani test sırasında kota tükense bile demo çalışmaya devam eder.
 
 ---
