@@ -18,6 +18,7 @@ OptiPrice AI is a B2B/SaaS control panel that lets a seller define a product **o
 Sistemi kurmadan canlı deploy üzerinden test edebilirsiniz:
 
 - **Uygulama:** https://optiprice.online *(landing → "Hemen Başla")*
+- **Demo video:** https://youtu.be/BTUeaO8MFFQ *(~65 saniye — problem, çözüm, canlı ajan kararı, deterministik fallback, iş modeli)*
 - **Demo hesabı:** `jury@optiprice.online` / `OptiPrice2026!`
   *(veya kendi hesabınızı 10 saniyede oluşturabilirsiniz — e-posta doğrulaması yok)*
 
