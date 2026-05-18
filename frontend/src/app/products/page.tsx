@@ -25,6 +25,7 @@ export default async function ProductsPage() {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">Ürünler</h1>
         <div className="flex items-center gap-2 flex-wrap">
+          {products.length > 0 && <DemoSeedButton reset label="Demo'yu Yenile" />}
           <ResetPricesButton />
           <Link
             href="/products/new"

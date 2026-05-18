@@ -281,12 +281,25 @@ class DemoSeedResult(BaseModel):
 async def seed_demo_data(
     session: SessionDep,
     user_id: UserIdDep,
+    reset: bool = False,
 ) -> DemoSeedResult:
+    """Seed demo data for the calling user.
+
+    reset=True: delete user's existing products, pps, logs, and platform connections first.
+    Use this when re-running the demo or recovering from a broken state.
+    """
     connections_created = 0
     connections_skipped = 0
     products_created = 0
     products_skipped = 0
     errors: list[str] = []
+
+    if reset:
+        # Cascade-delete user's products (kills pps + logs) and connections.
+        from sqlalchemy import delete
+        await session.execute(delete(Product).where(Product.user_id == user_id))
+        await session.execute(delete(PlatformConnection).where(PlatformConnection.user_id == user_id))
+        await session.commit()
 
     # 1. Ensure platform connections
     platforms_result = await session.execute(select(Platform).where(Platform.is_active.is_(True)))
