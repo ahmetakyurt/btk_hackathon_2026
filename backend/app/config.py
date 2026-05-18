@@ -16,12 +16,6 @@ class Settings(BaseSettings):
     gemini_model: str = Field(default="gemini-2.5-flash", alias="GEMINI_MODEL")
     gemini_timeout_seconds: int = Field(default=15, alias="GEMINI_TIMEOUT_SECONDS")
 
-    # Vertex AI (Express Mode) — uses GCP free credit
-    use_vertex_ai: bool = Field(default=False, alias="USE_VERTEX_AI")
-    gcp_project_id: str = Field(default="", alias="GCP_PROJECT_ID")
-    gcp_location: str = Field(default="us-central1", alias="GCP_LOCATION")
-    vertex_api_key: str = Field(default="", alias="VERTEX_API_KEY")
-
     backend_host: str = Field(default="0.0.0.0", alias="BACKEND_HOST")
     backend_port: int = Field(default=8000, alias="BACKEND_PORT")
     database_url: str = Field(

@@ -95,14 +95,13 @@ class ListingAgent:
         self._model = model
         self._timeout = timeout
         self._client = client
-        from app.core.gemini_client import vertex_configured
-        self._available = bool(client) or bool(api_key) or vertex_configured()
+        self._available = bool(api_key)
 
     def _get_client(self) -> Any:
         if self._client is not None:
             return self._client
-        from app.core.gemini_client import build_genai_client
-        return build_genai_client(self._api_key)
+        from google import genai  # lazy import to avoid import-time side effects
+        return genai.Client(api_key=self._api_key)
 
     async def generate_listing(
         self, platform_code: str, product_info: dict[str, Any]

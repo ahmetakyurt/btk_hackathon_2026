@@ -591,13 +591,14 @@ async def ask_sales_assistant(
     prompt = f"{context}\n\nKULLANICI SORUSU: {body.question}"
 
     settings = get_settings()
-    from app.core.gemini_client import build_genai_client
-    client = build_genai_client()
-    if client is None:
+    if not settings.gemini_api_key:
         return AskResponse(answer="Gemini API anahtarı yapılandırılmamış. Lütfen yöneticiyle iletişime geçin.")
 
     try:
+        from google import genai
         from google.genai import types
+
+        client = genai.Client(api_key=settings.gemini_api_key)
 
         def _call() -> str:
             response = client.models.generate_content(

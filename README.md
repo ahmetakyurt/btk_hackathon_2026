@@ -169,15 +169,8 @@ docker compose build --no-cache && docker compose up
 
 **Backend `backend/.env`:**
 ```
-GEMINI_API_KEY=...                    # AI Studio path (default)
+GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash
-
-# Optional — Vertex AI Express Mode (uses GCP free credit instead of AI Studio billing)
-# When USE_VERTEX_AI=true, GEMINI_API_KEY is ignored.
-USE_VERTEX_AI=false
-GCP_PROJECT_ID=
-GCP_LOCATION=us-central1
-VERTEX_API_KEY=
 DATABASE_URL=postgresql+asyncpg://user:pass@host:port/db
 NEXTAUTH_SECRET=...
 RESEND_API_KEY=...
