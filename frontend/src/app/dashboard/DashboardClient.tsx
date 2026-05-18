@@ -166,7 +166,8 @@ export default function DashboardClient({ data, insights }: { data: DashboardSum
             <p className="text-xs text-zinc-400">Henuz karar kaydi yok.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[720px]">
             <thead className="bg-zinc-50 dark:bg-zinc-800 text-left">
               <tr>
                 <th className="px-4 py-2.5 font-medium text-zinc-500 text-xs">Zaman</th>
@@ -220,6 +221,7 @@ export default function DashboardClient({ data, insights }: { data: DashboardSum
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

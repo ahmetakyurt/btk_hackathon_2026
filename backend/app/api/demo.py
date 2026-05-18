@@ -225,7 +225,9 @@ def _make_mock_logs(
         scenario = _MOCK_SCENARIOS[(status.id + i) % len(_MOCK_SCENARIOS)]
         delta = Decimal(str(round(random.uniform(-30, 30), 2)))
         new_price = max(floor, price + delta) if scenario["decision"] == "price_updated" else price
-        created_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=(log_count - i) * 8)
+        created_at = datetime.now(UTC).replace(tzinfo=None) - timedelta(
+            seconds=(log_count - i) * 30 + random.randint(0, 15)
+        )
         logs.append(
             PricingAgentLog(
                 product_platform_id=status.id,
@@ -236,7 +238,7 @@ def _make_mock_logs(
                     "competitor_price": float(price - Decimal("0.50")),
                     "floor_price": float(floor),
                 },
-                reasoning=scenario["reasoning"],
+                reasoning=f"[GEMINI] {scenario['reasoning']}",
                 tool_calls={
                     "calls": [
                         "get_competitor_prices",
