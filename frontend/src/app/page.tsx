@@ -259,7 +259,6 @@ export default async function HomePage() {
                 <PlatformBadge name="Amazon" />
                 <PlatformBadge name="Hepsiburada" />
                 <PlatformBadge name="N11" />
-                <PlatformBadge name="GittiGidiyor" />
                 <PlatformBadge name="Shopify" />
                 <PlatformBadge name="WooCommerce" />
               </div>
