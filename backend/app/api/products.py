@@ -62,6 +62,36 @@ def compute_floor_price(
     return (total_cost / divisor).quantize(Decimal("0.01"))
 
 
+async def _seed_marketplace_competitor_ref(
+    status_rows: list[ProductPlatformStatus],
+    platforms: list[Platform],
+) -> None:
+    """Populate competitor_price + has_buybox for newly-listed marketplace rows.
+
+    Without this the UI shows "-" until CompetitorWatcher's first tick.
+    own_site is handled separately by _refresh_own_site_market_ref.
+    """
+    platform_by_id = {p.id: p for p in platforms}
+
+    async def _fetch(row: ProductPlatformStatus) -> None:
+        if row.status != "listed" or not row.external_id:
+            return
+        platform = platform_by_id.get(row.platform_id)
+        if platform is None or platform.code == "own_site":
+            return
+        integration = _make_integration(platform)
+        try:
+            snapshot = await integration.get_competitor_snapshot(row.external_id)
+        except IntegrationError:
+            return
+        if not snapshot.competitors:
+            return
+        row.competitor_price = min(c.price for c in snapshot.competitors)
+        row.has_buybox = snapshot.own_has_buybox
+
+    await asyncio.gather(*[_fetch(r) for r in status_rows])
+
+
 async def _refresh_own_site_market_ref(product_id: int, session: AsyncSession) -> None:
     """Set own_site's competitor_price to the mean of sibling Trendyol/Amazon current_price.
 
@@ -255,6 +285,7 @@ async def create_product(
     for row in status_rows:
         session.add(row)
 
+    await _seed_marketplace_competitor_ref(status_rows, platforms)
     await session.commit()
     await _refresh_own_site_market_ref(product.id, session)
     await session.commit()
@@ -469,6 +500,21 @@ async def retry_product_listing(
     tasks += [_list_new(p) for p in missing_platforms]
     await asyncio.gather(*tasks)
     await session.commit()
+
+    # Seed competitor_price for newly listed marketplace rows so UI doesn't show "-"
+    fresh_rows = list(
+        (
+            await session.scalars(
+                select(ProductPlatformStatus)
+                .where(ProductPlatformStatus.product_id == product_id)
+                .options(selectinload(ProductPlatformStatus.platform))
+            )
+        ).all()
+    )
+    all_platforms = [r.platform for r in fresh_rows if r.platform is not None]
+    await _seed_marketplace_competitor_ref(fresh_rows, all_platforms)
+    await session.commit()
+
     await _refresh_own_site_market_ref(product_id, session)
     await session.commit()
 
