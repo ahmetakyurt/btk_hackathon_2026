@@ -50,27 +50,27 @@ export function MobileNav() {
         }`}
       >
         <div className="px-6 py-5 flex flex-col gap-3">
-          <a
-            href="#features"
+          <Link
+            href="/#features"
             onClick={() => setOpen(false)}
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
           >
             Özellikler
-          </a>
-          <a
-            href="#how-it-works"
+          </Link>
+          <Link
+            href="/#how-it-works"
             onClick={() => setOpen(false)}
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
           >
             Nasıl Çalışır
-          </a>
-          <a
-            href="#platforms"
+          </Link>
+          <Link
+            href="/#platforms"
             onClick={() => setOpen(false)}
             className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors py-2"
           >
             Platformlar
-          </a>
+          </Link>
           <Link
             href="/pricing"
             onClick={() => setOpen(false)}

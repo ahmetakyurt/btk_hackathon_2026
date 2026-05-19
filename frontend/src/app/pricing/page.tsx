@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
+import { MobileNav } from "@/components/mobile-nav";
 
 const TIERS = [
   {
@@ -102,7 +103,7 @@ export default function PricingPage() {
               Fiyatlandırma
             </Link>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-3">
             <Link
               href="/auth/login"
               className="text-sm font-medium text-foreground hover:text-muted-foreground transition-colors"
@@ -116,6 +117,7 @@ export default function PricingPage() {
               Hemen Başla
             </Link>
           </div>
+          <MobileNav />
         </div>
       </nav>
 
