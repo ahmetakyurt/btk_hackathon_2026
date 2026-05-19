@@ -77,7 +77,7 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
       {/* Sidebar — desktop: always visible, mobile: slide-in overlay */}
       <aside
         className={cn(
-          "w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-screen overflow-y-auto",
+          "w-56 shrink-0 flex flex-col border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 h-[100dvh] md:h-screen overflow-y-auto pb-[env(safe-area-inset-bottom)]",
           // Desktop: static sidebar
           "hidden md:flex md:sticky md:top-0",
           // Mobile: fixed overlay sidebar
@@ -106,7 +106,7 @@ export function Sidebar({ userEmail, userName }: { userEmail?: string; userName?
         </nav>
 
         {userEmail && (
-          <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-3">
+          <div className="border-t border-zinc-200 dark:border-zinc-800 px-4 py-3 pb-8 md:pb-3">
             <Link
               href="/profile"
               className="block group"
